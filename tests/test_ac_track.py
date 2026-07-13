@@ -81,6 +81,27 @@ def test_write_obj_objets_nommes() -> None:
     assert "\nf " in obj
 
 
+def test_write_ac_folder_structure(tmp_path: object) -> None:
+    from pathlib import Path
+
+    from rsb.export.ac_track import write_ac_folder
+
+    cl = _straight_east()
+    dem = DEMRaster.from_plane(origin=(1990.0, 1130.0), res=1.0, shape=(80, 120))
+    cl.z = dem.sample(cl.xy)
+    track = build_ac_track(cl, dem, "demo-track", default_width=6.0)
+    root, proj = write_ac_folder(track, Path(str(tmp_path)), 1234.0)
+    # structure AC : content/tracks/<id>/
+    assert (root / "demo-track.fbx").exists()
+    assert (root / "models.ini").exists()
+    assert (root / "README_IMPORT.txt").exists()
+    assert (root / "data" / "surfaces.ini").exists()
+    assert (root / "data" / "map.ini").exists()
+    assert (root / "data" / "ai").is_dir()
+    assert (root / "ui" / "ui_track.json").exists()
+    assert "SCALE_FACTOR" in proj and proj["SCALE_FACTOR"] > 0
+
+
 def test_write_fbx_structure() -> None:
     cl = _straight_east()
     dem = DEMRaster.from_plane(origin=(1990.0, 1130.0), res=1.0, shape=(80, 120))

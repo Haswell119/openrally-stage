@@ -423,6 +423,80 @@ def build_ac_layers_figure(track: AcTrack) -> Figure:
     return fig
 
 
+def _fit_limits(
+    x: np.ndarray, y: np.ndarray, aspect_wh: float
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Limites couvrant les données à un ratio largeur/hauteur donné (échelle égale)."""
+    x0, x1 = float(x.min()), float(x.max())
+    y0, y1 = float(y.min()), float(y.max())
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    w = max(x1 - x0, 1.0) * 1.1
+    h = max(y1 - y0, 1.0) * 1.1
+    if w / h < aspect_wh:
+        w = h * aspect_wh
+    else:
+        h = w / aspect_wh
+    return (cx - w / 2, cx + w / 2), (cy - h / 2, cy + h / 2)
+
+
+def render_ac_images(track: AcTrack, track_dir: str | Path, proj: dict[str, float]) -> None:
+    """Rend les images AC : ui/preview.png (355×200), ui/outline.png (355×200,
+    transparent), data/map.png (minimap selon ``proj``)."""
+    d = Path(track_dir)
+    road = next((m for m in track.meshes if m.name == "1ROAD"), track.meshes[0])
+    v = road.vertices
+    n = len(v) // 2
+    # coords top-down AC : x = E, y = -N
+    ex, ny = v[:, 0], -v[:, 1]
+    poly_x = np.concatenate([ex[:n], ex[n:][::-1]])
+    poly_y = np.concatenate([ny[:n], ny[n:][::-1]])
+
+    # --- ui/preview.png (355×200) : carte colorée ---
+    fig = plt.figure(figsize=(3.55, 2.0), dpi=100)
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.axis("off")
+    ax.set_facecolor("#e8eef0")
+    fig.patch.set_facecolor("#e8eef0")
+    ax.fill(poly_x, poly_y, color="#555555")
+    for o in track.objects:
+        if o.name == "AC_PIT_0":
+            ax.plot(o.pos[0], -o.pos[1], "g^", markersize=7)
+        if o.name == "AC_AB_FINISH_L":
+            ax.plot(o.pos[0], -o.pos[1], "rv", markersize=7)
+    xlim, ylim = _fit_limits(poly_x, poly_y, 3.55 / 2.0)
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_aspect("equal")
+    fig.savefig(d / "ui" / "preview.png", dpi=100)
+    plt.close(fig)
+
+    # --- ui/outline.png (355×200, transparent) : tracé blanc ---
+    fig = plt.figure(figsize=(3.55, 2.0), dpi=100)
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.axis("off")
+    ax.fill(poly_x, poly_y, color="white")
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_aspect("equal")
+    fig.savefig(d / "ui" / "outline.png", dpi=100, transparent=True)
+    plt.close(fig)
+
+    # --- data/map.png (minimap, coords pixel selon proj) ---
+    w, h = int(proj["WIDTH"]), int(proj["HEIGHT"])
+    sc, xo, zo = proj["SCALE_FACTOR"], proj["X_OFFSET"], proj["Z_OFFSET"]
+    px = (poly_x + xo) * sc
+    py = (poly_y + zo) * sc
+    fig = plt.figure(figsize=(w / 100, h / 100), dpi=100)
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.axis("off")
+    ax.set_xlim(0, w)
+    ax.set_ylim(0, h)
+    ax.fill(px, py, color="white")
+    ax.invert_yaxis()
+    fig.savefig(d / "data" / "map.png", dpi=100, transparent=True)
+    plt.close(fig)
+
+
 def render_ac_layers(track: AcTrack, out_path: str | Path, *, dpi: int = 130) -> Path:
     """Rend le contrôle visuel des couches AC en PNG."""
     out = Path(out_path)

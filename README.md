@@ -90,8 +90,55 @@ uv run rsb preview outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
 uv run rsb detail outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
 ```
 
-Les sorties (bundles, mesh, previews, carte du rallye) vont dans `outputs/` et
-les tuiles téléchargées dans `data/` — **les deux sont ignorés par git**.
+Les sorties (bundles, mesh, previews, carte du rallye, **dossiers piste AC**) vont
+dans `outputs/` et les tuiles téléchargées dans `data/` — **les deux sont ignorés
+par git** (ce sont des sorties + du contenu dérivé de vos données ; ne pas
+redistribuer).
+
+### Dossier piste prêt pour Assetto Corsa
+
+Chaque build produit un **dossier piste au format AC**, prêt à copier :
+
+```
+outputs/<rallye>/<ss>/ac/<track_id>/          ← copiez CE dossier dans
+  ├── <track_id>.fbx        Import ksEditor → export <track_id>.kn5 ICI
+  ├── models.ini            content/tracks/
+  ├── README_IMPORT.txt     (mode d'emploi ksEditor, sans Blender)
+  ├── data/
+  │   ├── surfaces.ini      ROAD / GRASS / KERB
+  │   ├── map.ini + map.png minimap
+  │   └── ai/               fast_lane.ai (à générer en jeu)
+  └── ui/
+      ├── ui_track.json     nom, longueur, tags
+      ├── preview.png       355×200
+      └── outline.png       355×200
+```
+
+**Il ne manque que le `.kn5`** (modèle 3D compilé) : ouvrez `<track_id>.fbx` dans
+**ksEditor** (outil Kunos, **pas de Blender**), assignez les matériaux, exportez
+le `.kn5` dans le dossier, puis copiez le tout dans
+`Assetto Corsa/content/tracks/`. Détails : [`STAGE_GUIDE.md`](STAGE_GUIDE.md) §0bis.
+L'**AI line** et les **pacenotes** se génèrent en jeu (§5–6).
+
+### Utiliser avec un autre rallye
+
+1. Créez un dossier `stages/<mon-rallye>/` avec un `rally.toml` (nom, provider MNT,
+   valeurs par défaut, liste des spéciales — voir `stages/chablais-2026/rally.toml`).
+2. Ajoutez vos **GPX** (roadbook / export perso) dans ce dossier (ils restent
+   **locaux**, gitignorés). Un GPX multi-spéciales : une track par SS.
+3. Un sous-dossier + `stage.toml` par spéciale, pointant vers le GPX + sa track :
+   ```toml
+   name = "mon-rallye-ss1"
+   title = "Mon rallye — SS1"
+   gpx = "../mon-rallye.gpx"
+   gpx_track = "SS 1 - Nom"          # ou waypoints si pas de GPX
+   ```
+   Ou laissez `rsb new-stage stages/<mon-rallye> ss1-nom` créer le squelette.
+4. `uv run rsb build-rally stages/<mon-rallye>` → un dossier piste AC par SS.
+
+> **Hors Suisse** : swissALTI3D ne couvre que la Suisse. Pour un autre pays, il
+> faut ajouter un `DEMProvider` (IGN, PNOA, Copernicus…) — l'architecture le
+> permet sans toucher au reste (voir `providers/dem.py`).
 
 ### Un rallye entier
 

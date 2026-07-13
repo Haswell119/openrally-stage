@@ -45,27 +45,35 @@ dévers sont faux, corrigez `stage.toml` (waypoints / surfaces) et relancez
 
 ## 0bis. Export AC **direct, SANS Blender** (recommandé) — dossier `ac/`
 
-`rsb build` génère aussi un sous-dossier **`ac/`** avec une piste déjà modélisée,
-prête pour **ksEditor** (l'outil Kunos) :
+`rsb build` génère un **dossier piste au format AC**, prêt à copier dans
+`content/tracks/` :
 
-| Fichier | Contenu |
-|---|---|
-| `track.fbx` | Piste 3D nommée AC : `1ROAD` (route roulable), `1KERB` (bordures/trottoirs dans les virages), `1WALL` (barrières placées **d'après le MNT** là où le terrain plonge), `1GRASS` (terrain) + objets `AC_AB_START_L/R`, `AC_AB_FINISH_L/R`, `AC_TIME_0_L/R`, `AC_PIT_0`. **Axe Y-up, mètres, localisé.** |
-| `track.obj` | Même géométrie en OBJ (secours / 3DSimED). |
-| `surfaces.ini` | Types de surface (ROAD/GRASS/KERB). |
-| `ui_track.json` | Métadonnées piste (`content/tracks/<piste>/ui/`). |
-| `ac_objects.json` | Origine LV95 + positions des objets AC + stats meshes. |
-| `ac_preview.png` | Contrôle visuel des couches (route/bordures/barrières). |
+```
+outputs/<rallye>/<ss>/ac/<track_id>/
+├── <track_id>.fbx     1ROAD (route) + 1KERB (bordures) + 1WALL (barrières d'après
+│                      le MNT) + 1GRASS (terrain) + objets AC_AB_START/FINISH/TIME/PIT.
+│                      Axe Y-up, mètres, localisé.
+├── track.obj          même géométrie (secours / 3DSimED)
+├── models.ini         référence le <track_id>.kn5
+├── data/
+│   ├── surfaces.ini   ROAD / GRASS / KERB
+│   ├── map.ini + map.png   minimap
+│   └── ai/            fast_lane.ai (à générer en jeu, §5)
+└── ui/
+    ├── ui_track.json  nom, longueur, tags
+    ├── preview.png    355×200
+    └── outline.png    355×200
+```
 
 **Flux ksEditor (pas de Blender) :**
-1. Ouvrez **ksEditor** (SDK Kunos) → **Import FBX** → `ac/track.fbx`.
+1. Ouvrez **ksEditor** (SDK Kunos) → **Import FBX** → `ac/<track_id>/<track_id>.fbx`.
 2. **Échelle** : si la piste est 100× trop grande, réimportez à **0.01** (le FBX
-   est écrit en mètres, mais ksEditor applique parfois le cm).
+   est en mètres, mais ksEditor applique parfois le cm).
 3. Assignez les **matériaux/shaders** aux objets `1ROAD`/`1KERB`/`1WALL`/`1GRASS`
-   (textures tarmac/gravier/herbe), placez le `surfaces.ini`.
-4. **File > Save** (persistence `.fbx.ini`) puis **export `<piste>.kn5`**.
-5. Copiez le tout dans `content/tracks/<piste>/` avec `ui/ui_track.json`.
-6. **AI line** + **pacenotes** : voir §5 et §6 (toujours nécessaires, en jeu).
+   (textures tarmac/gravier/herbe).
+4. **File > Save** (persistence) puis **export `<track_id>.kn5` DANS le dossier**.
+5. Copiez `ac/<track_id>/` dans `Assetto Corsa/content/tracks/`.
+6. **AI line** + **pacenotes** : voir §5 et §6 (en jeu, toujours nécessaires).
 
 > ⚠️ Ne pouvant pas tester ksEditor ici, vérifiez au 1er import : l'**échelle**
 > (0.01 au besoin) et l'**orientation** (si la piste est retournée, c'est l'axe —

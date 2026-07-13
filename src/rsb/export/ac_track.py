@@ -482,27 +482,97 @@ def ui_track_json(track: AcTrack, length_m: float) -> dict[str, Any]:
     }
 
 
-def write_ac_track(track: AcTrack, out_dir: str | Path, length_m: float) -> dict[str, str]:
-    """Écrit les fichiers AC (OBJ + FBX + surfaces.ini + ui_track.json + objets)."""
+def map_projection(track: AcTrack, size: int = 1024, margin: int = 40) -> dict[str, float]:
+    """Projection minimap AC (map.ini) : coords monde AC (x=E, z=-N) → pixels."""
+    road = next((m for m in track.meshes if m.name == "1ROAD"), track.meshes[0])
+    v = road.vertices
+    xs = v[:, 0]
+    zs = -v[:, 1]
+    xmin, xmax = float(xs.min()), float(xs.max())
+    zmin, zmax = float(zs.min()), float(zs.max())
+    span = max(xmax - xmin, zmax - zmin, 1.0)
+    scale = (size - 2 * margin) / span  # pixels par mètre
+    return {
+        "WIDTH": float(size),
+        "HEIGHT": float(size),
+        "X_OFFSET": -xmin + margin / scale,
+        "Z_OFFSET": -zmin + margin / scale,
+        "SCALE_FACTOR": scale,
+    }
+
+
+def map_ini(proj: dict[str, float]) -> str:
+    return (
+        "[PARAMETERS]\n"
+        f"WIDTH={int(proj['WIDTH'])}\n"
+        f"HEIGHT={int(proj['HEIGHT'])}\n"
+        f"X_OFFSET={proj['X_OFFSET']:.4f}\n"
+        f"Z_OFFSET={proj['Z_OFFSET']:.4f}\n"
+        f"SCALE_FACTOR={proj['SCALE_FACTOR']:.6f}\n"
+        "DRAWING_SIZE=6\n"
+    )
+
+
+def models_ini(track: AcTrack) -> str:
+    return f"[MODEL_0]\nFILE={track.name}.kn5\nPOSITION=0,0,0\nROTATION=0,0,0\n"
+
+
+_README = """PISTE ASSETTO CORSA — {name}
+Généré par rally-stage-builder (usage simulation personnel).
+
+Ce dossier suit la structure AC : copiez-le dans
+    <Assetto Corsa>/content/tracks/
+
+IL MANQUE UNE SEULE CHOSE : le modèle 3D compilé {name}.kn5.
+Générez-le UNE fois (outil Kunos, pas de Blender) :
+  1. Ouvrez ksEditor (SDK Assetto Corsa).
+  2. Import FBX -> {name}.fbx (dans ce dossier).
+     - Si la piste est 100x trop grande, réimportez à l'échelle 0.01.
+  3. Assignez les matériaux/textures aux objets 1ROAD / 1KERB / 1WALL / 1GRASS
+     (tarmac / bordure / rail / herbe).
+  4. File > Save (persistence) puis EXPORT -> {name}.kn5 DANS CE DOSSIER.
+
+Ensuite, en jeu (voir STAGE_GUIDE.md) :
+  - AI line : app AI -> conduire -> fast_lane.ai (dans data/ai/).
+  - Pacenotes : CSP Copilot (auto depuis l'AI line).
+
+Attribution obligatoire : (c) OpenStreetMap contributors (ODbL) ;
+Source : swisstopo (swissALTI3D). Ne redistribuez pas la trace rally-maps.
+"""
+
+
+def write_ac_folder(
+    track: AcTrack, ac_root: str | Path, length_m: float
+) -> tuple[Path, dict[str, float]]:
+    """Écrit un dossier piste **prêt à copier dans `content/tracks/`**.
+
+    Structure AC : ``<track_id>/{track.fbx, track.obj, models.ini, README, data/
+    (surfaces.ini, map.ini, ai/), ui/(ui_track.json)}``. Les images
+    (ui/preview.png, ui/outline.png, data/map.png) sont rendues séparément.
+    Retourne ``(dossier_piste, projection_minimap)``.
+    """
     import json
 
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    written: dict[str, str] = {}
+    root = Path(ac_root) / track.name
+    (root / "data" / "ai").mkdir(parents=True, exist_ok=True)
+    (root / "ui").mkdir(parents=True, exist_ok=True)
 
-    def _w(name: str, text: str) -> None:
-        (out / name).write_text(text, encoding="utf-8")
-        written[name] = str(out / name)
+    (root / f"{track.name}.fbx").write_text(write_fbx(track), encoding="utf-8")
+    (root / "track.obj").write_text(write_obj(track), encoding="utf-8")
+    (root / "models.ini").write_text(models_ini(track), encoding="utf-8")
+    (root / "README_IMPORT.txt").write_text(_README.format(name=track.name), encoding="utf-8")
 
-    _w("track.obj", write_obj(track))
-    _w("track.fbx", write_fbx(track))
-    _w("surfaces.ini", surfaces_ini())
-    _w(
-        "ui_track.json",
-        json.dumps(ui_track_json(track, length_m), ensure_ascii=False, indent=2),
+    (root / "data" / "surfaces.ini").write_text(surfaces_ini(), encoding="utf-8")
+    proj = map_projection(track)
+    (root / "data" / "map.ini").write_text(map_ini(proj), encoding="utf-8")
+    (root / "data" / "ai" / "LISEZ-MOI.txt").write_text(
+        "fast_lane.ai à générer EN JEU (app AI, voir STAGE_GUIDE.md §5).\n", encoding="utf-8"
     )
-    _w(
-        "ac_objects.json",
+
+    (root / "ui" / "ui_track.json").write_text(
+        json.dumps(ui_track_json(track, length_m), ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (root / "ac_objects.json").write_text(
         json.dumps(
             {
                 "origin_lv95": {"E": track.origin[0], "N": track.origin[1], "Z": track.origin[2]},
@@ -517,5 +587,6 @@ def write_ac_track(track: AcTrack, out_dir: str | Path, length_m: float) -> dict
             ensure_ascii=False,
             indent=2,
         ),
+        encoding="utf-8",
     )
-    return written
+    return root, proj

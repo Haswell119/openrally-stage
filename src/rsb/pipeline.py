@@ -95,8 +95,8 @@ def build_stage(
 
 
 def _export_ac(bundle: StageBundle, dem: DEMRaster, cfg: StageConfig, out_dir: Path) -> None:
-    """Génère les fichiers « prêts pour Assetto Corsa » (FBX/OBJ + métadonnées)."""
-    from rsb.export.ac_track import NamedMesh, build_ac_track, write_ac_track
+    """Génère le dossier piste **prêt à copier dans `content/tracks/`** (FBX + AC)."""
+    from rsb.export.ac_track import NamedMesh, build_ac_track, write_ac_folder
 
     terrain_mesh = None
     if bundle.terrain is not None:
@@ -109,10 +109,11 @@ def _export_ac(bundle: StageBundle, dem: DEMRaster, cfg: StageConfig, out_dir: P
         terrain=terrain_mesh,
     )
     ac_dir = out_dir / "ac"
-    write_ac_track(track, ac_dir, bundle.centerline.length_m)
+    track_dir, proj = write_ac_folder(track, ac_dir, bundle.centerline.length_m)
     try:
-        from validate.preview3d import render_ac_layers
+        from validate.preview3d import render_ac_images, render_ac_layers
 
+        render_ac_images(track, track_dir, proj)
         render_ac_layers(track, ac_dir / "ac_preview.png")
-    except Exception:  # noqa: BLE001 — le rendu de contrôle ne doit pas casser le build
+    except Exception:  # noqa: BLE001 — le rendu ne doit pas casser le build
         pass
