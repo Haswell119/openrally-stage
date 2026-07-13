@@ -29,11 +29,14 @@ def test_seed_stage_charge_et_valide() -> None:
     assert cfg.name == "chablais-2026-ss5-9-evionnaz-vernayaz"
     assert cfg.crs.work == "EPSG:2056"
     assert cfg.default_surface is SurfaceKind.TARMAC
-    # start puis vias puis end
+    # start puis end
     assert cfg.waypoints[0].role is WaypointRole.START
     assert cfg.waypoints[-1].role is WaypointRole.END
-    # au moins un segment terre placeholder
-    assert any(s.kind is SurfaceKind.GRAVEL for s in cfg.surface_overrides)
+    # bornes RÉELLES (converties depuis DMS fournis par l'utilisateur)
+    assert cfg.waypoints[0].lat == pytest.approx(46.173415, abs=1e-5)
+    assert cfg.waypoints[0].lon == pytest.approx(7.021605, abs=1e-5)
+    assert cfg.waypoints[-1].lat == pytest.approx(46.143834, abs=1e-5)
+    assert cfg.waypoints[-1].lon == pytest.approx(7.037698, abs=1e-5)
 
 
 def test_waypoints_exigent_un_start_et_un_end() -> None:

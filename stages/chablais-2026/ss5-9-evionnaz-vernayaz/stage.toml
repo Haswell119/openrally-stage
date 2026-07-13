@@ -1,17 +1,13 @@
 # =============================================================================
 # Rallye du Chablais 2026 — SS5/9 « Evionnaz–Vernayaz »
-# Plaine du Rhône, Valais (VS), Suisse. Tarmac + portion terre (test surface).
+# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate (~445–485 m).
 #
-# ⚠️  WAYPOINTS & SEGMENTS = VALEURS SEED (APPROXIMATIVES) ⚠️
-# ---------------------------------------------------------------------------
-# Les coordonnées et les distances de surface ci-dessous sont des PLACEHOLDERS
-# destinés à FORCER un itinéraire plausible le long de la plaine/digue du Rhône.
-# Vous DEVEZ les affiner depuis votre roadbook (usage HUMAIN de rally-maps /
-# du roadbook — jamais de scraping) :
-#   • départ / arrivée exacts (bornes de la spéciale) ;
-#   • vias : ajoutez/déplacez des points pour coller à la vraie route empruntée ;
-#   • surface_overrides : ajustez start_m / end_m de la portion « terre » d'après
-#     vos notes (la distance curviligne est comptée depuis le départ, en mètres).
+# Bornes DÉPART/ARRIVÉE = coordonnées RÉELLES fournies par l'utilisateur
+# (converties depuis DMS). Le tracé est routé DIRECTEMENT sur le réseau OSM
+# entre ces deux points (pas de via forcé).
+#
+# ⚠️  Si le tracé routé dévie de la vraie spéciale, ajoutez des `via` le long de
+#     la route empruntée (usage HUMAIN du roadbook — jamais de scraping).
 # =============================================================================
 
 name = "chablais-2026-ss5-9-evionnaz-vernayaz"
@@ -40,36 +36,27 @@ simplify = true
 cross_section_width_m = 12.0  # largeur des coupes perpendiculaires (dévers)
 n_samples = 21
 
-# --- Waypoints : start → vias → end (SEED, à affiner) -----------------------
+# --- Waypoints : bornes RÉELLES (DMS → décimal) -----------------------------
+# Départ : 46°10'24.2955"N 7°1'17.7772"E
 [[waypoints]]
 role = "start"
-name = "Evionnaz"
-lat = 46.1830          # SEED — affiner (borne de départ réelle)
-lon = 7.0210
+name = "Départ Evionnaz"
+lat = 46.173415
+lon = 7.021605
 
-[[waypoints]]
-role = "via"
-name = "Plaine du Rhône (nord)"
-lat = 46.1680          # SEED — via pour forcer l'itinéraire le long de la plaine
-lon = 7.0280
-
-[[waypoints]]
-role = "via"
-name = "Digue du Rhône (sud)"
-lat = 46.1500          # SEED — via pour forcer l'itinéraire le long de la digue
-lon = 7.0350
-
+# Arrivée : 46°8'37.8039"N 7°2'15.7129"E
 [[waypoints]]
 role = "end"
-name = "Vernayaz"
-lat = 46.1330          # SEED — affiner (borne d'arrivée réelle)
-lon = 7.0410
+name = "Arrivée Vernayaz"
+lat = 46.143834
+lon = 7.037698
 
-# --- Segments de surface (surchargent la surface par défaut) ----------------
-# PLACEHOLDER : une portion « terre » à marquer. Ajustez start_m / end_m depuis
-# vos notes (distance en mètres depuis le départ ; end_m absent = jusqu'à la fin).
-[[surface_overrides]]
-kind = "gravel"        # « terre »
-start_m = 1500.0       # SEED — à ajuster
-end_m = 2100.0         # SEED — à ajuster
-note = "Portion terre placeholder — remplacer par la vraie distance du roadbook."
+# --- Segments de surface (optionnel) ----------------------------------------
+# Aucun segment « terre » défini pour l'instant (spéciale considérée tarmac).
+# Pour marquer une portion terre, décommentez et ajustez les distances (m depuis
+# le départ) d'après votre roadbook :
+# [[surface_overrides]]
+# kind = "gravel"
+# start_m = 0.0
+# end_m = 0.0
+# note = "Portion terre — distances à renseigner depuis le roadbook."
