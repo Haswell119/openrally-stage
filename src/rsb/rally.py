@@ -87,11 +87,14 @@ def load_rally(path: str | Path) -> tuple[RallyConfig, Path]:
 
 def load_rally_stage(rally: RallyConfig, base_dir: Path, ref: RallyStageRef) -> StageConfig:
     """Charge un ``stage.toml`` avec les défauts du rallye fusionnés dessous."""
-    stage_path = base_dir / ref.subdir() / "stage.toml"
-    with stage_path.open("rb") as fh:
+    from rsb.config import resolve_gpx_path
+
+    stage_dir = base_dir / ref.subdir()
+    with (stage_dir / "stage.toml").open("rb") as fh:
         raw = tomllib.load(fh)
     merged = deep_merge(rally.defaults, raw)  # le stage surcharge les défauts
-    return StageConfig.model_validate(merged)
+    cfg = StageConfig.model_validate(merged)
+    return resolve_gpx_path(cfg, stage_dir)  # gpx relatif au dossier de la spéciale
 
 
 @dataclass

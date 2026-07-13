@@ -48,6 +48,18 @@ et Copernicus (Europe) pourront être ajoutés **sans toucher au reste**.
 4. **Vous** importez le bundle dans Blender, exportez en KN5, générez l'AI line,
    ajoutez les pacenotes Copilot (CSP). Voir [`STAGE_GUIDE.md`](STAGE_GUIDE.md).
 
+## Deux sources de tracé : GPX (recommandé) ou waypoints OSM
+
+* **GPX** (recommandé pour une spéciale connue) : un fichier GPX exporté depuis
+  votre roadbook / rally-maps donne le **tracé réel dense**. Il est utilisé
+  **directement** comme centerline (projeté + rééchantillonné), puis drapé sur
+  swissALTI3D. C'est le plus fidèle (à quelques mètres près de la longueur réelle).
+  Dans le `stage.toml` : `gpx = "stage.gpx"` (chemin relatif).
+  ⚠️ Le GPX est un **contenu tiers** : gardé **local** (gitignoré `*.gpx`),
+  **non redistribué**.
+* **Waypoints OSM** : sans GPX, listez `[[waypoints]]` (départ / vias / arrivée) et
+  l'outil **route** sur le vrai réseau OSM. Pratique pour esquisser une spéciale.
+
 ## Quickstart
 
 Prérequis : Python 3.11+, [`uv`](https://docs.astral.sh/uv/).

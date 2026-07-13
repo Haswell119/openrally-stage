@@ -1,10 +1,14 @@
 # =============================================================================
 # Rallye du Chablais 2026 — SS5/9 « Evionnaz–Vernayaz »
-# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate (~445–485 m), ~5,38 km.
+# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate, ~5,4 km.
 #
-# Waypoints = points de passage RÉELS fournis par l'utilisateur (roadbook), dans
-# l'ordre, convertis depuis DMS. Départ et arrivée sont les bornes exactes ; les
-# `via` calent le tracé sur le vrai itinéraire (chicanes + boucle de fin).
+# SOURCE = GPX (tracé RÉEL de la spéciale, fourni par l'utilisateur depuis son
+# roadbook / rally-maps). Le GPX fait foi : il est utilisé DIRECTEMENT comme
+# centerline (projeté + rééchantillonné) puis drapé sur swissALTI3D. Pas de
+# routage OSM ici.
+#
+# ⚠️  Le fichier GPX est un contenu tiers : gardé LOCAL (gitignoré), non
+#     redistribué. Placez votre `stage.gpx` dans ce dossier.
 # =============================================================================
 
 name = "chablais-2026-ss5-9-evionnaz-vernayaz"
@@ -12,113 +16,24 @@ title = "Rallye du Chablais 2026 — SS5/9 Evionnaz–Vernayaz"
 description = "Recréation de la spéciale Evionnaz–Vernayaz (plaine du Rhône, Valais). Usage simulation personnel."
 direction = "Evionnaz → Vernayaz"
 
-default_surface = "tarmac"
+# Tracé source : GPX (relatif à ce fichier). Remplace les waypoints/routage OSM.
+gpx = "stage.gpx"
 
-# marge autour des waypoints pour la bbox MNT/OSM
+default_surface = "tarmac"
 bbox_margin_m = 400.0
 
 [crs]
-geographic = "EPSG:4326"   # waypoints en WGS84 (lat/lon)
-work = "EPSG:2056"         # CRS de travail métrique (CH1903+/LV95)
+geographic = "EPSG:4326"
+work = "EPSG:2056"
 
 [route]
 default_width_m = 6.0
 resample_step_m = 2.0
-network_filter = "permissive"  # inclut track/unclassified/service
+# network_filter/simplify inutilisés en mode GPX (conservés pour un éventuel
+# repli sur le routage OSM si `gpx` est retiré).
+network_filter = "permissive"
 simplify = true
 
 [camber]
 cross_section_width_m = 12.0
 n_samples = 21
-
-# --- Waypoints (ordre du roadbook) ------------------------------------------
-[[waypoints]]
-role = "start"
-name = "Départ Evionnaz"
-lat = 46.173415
-lon = 7.021605
-
-[[waypoints]]
-role = "via"
-name = "1ère chicane"
-lat = 46.168166
-lon = 7.021905
-
-[[waypoints]]
-role = "via"
-name = "avant croisement"
-lat = 46.158086
-lon = 7.028412
-
-[[waypoints]]
-role = "via"
-lat = 46.158127
-lon = 7.028879
-
-[[waypoints]]
-role = "via"
-lat = 46.158748
-lon = 7.029083
-
-[[waypoints]]
-role = "via"
-lat = 46.158261
-lon = 7.030156
-
-[[waypoints]]
-role = "via"
-lat = 46.157302
-lon = 7.030644
-
-[[waypoints]]
-role = "via"
-lat = 46.157503
-lon = 7.031980
-
-[[waypoints]]
-role = "via"
-name = "chicane"
-lat = 46.154805
-lon = 7.032071
-
-[[waypoints]]
-role = "via"
-lat = 46.148469
-lon = 7.033530
-
-[[waypoints]]
-role = "via"
-lat = 46.144715
-lon = 7.036352
-
-[[waypoints]]
-role = "via"
-lat = 46.144968
-lon = 7.037215
-
-[[waypoints]]
-role = "via"
-lat = 46.145236
-lon = 7.038637
-
-[[waypoints]]
-role = "via"
-name = "chicane"
-lat = 46.142976
-lon = 7.043486
-
-[[waypoints]]
-role = "via"
-lat = 46.142805
-lon = 7.042547
-
-[[waypoints]]
-role = "via"
-lat = 46.144005
-lon = 7.037376
-
-[[waypoints]]
-role = "end"
-name = "Arrivée Vernayaz"
-lat = 46.143834
-lon = 7.037698

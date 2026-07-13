@@ -173,6 +173,20 @@ def load_network(cfg: StageConfig, cache_dir: Path) -> Any:
     return ox.graph_from_bbox(bbox, network_type=nf, simplify=cfg.route.simplify)
 
 
+def centerline_from_lonlat(lonlat: FloatArray, cfg: StageConfig) -> Centerline:
+    """Construit une centerline depuis une polyligne (lon, lat) — ex. trace GPX.
+
+    Projette dans le CRS de travail, rééchantillonne à pas constant, calcule le cap.
+    Aucun routage OSM : le tracé fourni fait foi.
+    """
+    lonlat = np.asarray(lonlat, dtype=np.float64)
+    x, y = transform_points(lonlat[:, 0], lonlat[:, 1], cfg.crs.geographic, cfg.crs.work)
+    projected = np.column_stack([x, y])
+    pts, dist = resample_polyline(projected, cfg.route.resample_step_m)
+    heading = polyline_headings(pts)
+    return Centerline(crs=cfg.crs.work, xy=pts, distance_m=dist, heading_rad=heading)
+
+
 def build_centerline(
     cfg: StageConfig, cache_dir: str | Path = "data", *, graph: Any | None = None
 ) -> Centerline:
@@ -186,10 +200,4 @@ def build_centerline(
     wps = [(wp.lon, wp.lat) for wp in cfg.ordered_waypoints()]
     route = route_waypoints(graph, wps)
     lonlat = nodes_to_coords(graph, route)
-
-    x, y = transform_points(lonlat[:, 0], lonlat[:, 1], cfg.crs.geographic, cfg.crs.work)
-    projected = np.column_stack([x, y])
-
-    pts, dist = resample_polyline(projected, cfg.route.resample_step_m)
-    heading = polyline_headings(pts)
-    return Centerline(crs=cfg.crs.work, xy=pts, distance_m=dist, heading_rad=heading)
+    return centerline_from_lonlat(lonlat, cfg)

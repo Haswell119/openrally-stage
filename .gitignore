@@ -22,6 +22,9 @@ data/
 cache/
 osmnx_cache/
 
+# Traces GPX (roadbook / rally-maps) — contenu tiers, NE PAS REDISTRIBUER
+*.gpx
+
 # Sorties générées (bundles, mesh, previews) — NE JAMAIS COMMITTER
 outputs/
 

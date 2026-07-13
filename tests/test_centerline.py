@@ -10,6 +10,7 @@ from shapely.geometry import LineString
 from rsb.config import StageConfig
 from rsb.geo.centerline import (
     build_centerline,
+    centerline_from_lonlat,
     nodes_to_coords,
     permissive_filter,
     polyline_headings,
@@ -125,11 +126,29 @@ def test_build_centerline_avec_graphe_injecte() -> None:
     assert cl.heading_rad.shape == (len(cl),)
 
 
-@pytest.mark.network
-def test_build_centerline_reel_evionnaz() -> None:
-    from rsb.config import load_stage
+def test_centerline_from_lonlat_projette_et_rechantillonne() -> None:
+    # trace (lon, lat) type GPX → centerline projetée en EPSG:2056
+    lonlat = np.array([[7.0216, 46.1734], [7.030, 46.158], [7.0377, 46.1438]])
+    cfg = StageConfig(name="x", title="x", gpx="dummy.gpx", route={"resample_step_m": 5.0})
+    cl = centerline_from_lonlat(lonlat, cfg)
+    assert cl.crs == "EPSG:2056"
+    assert cl.length_m > 3000.0  # ~3,5 km
+    assert 2_400_000 < cl.xy[0, 0] < 2_800_000  # E plausible (Valais)
+    assert 1_050_000 < cl.xy[0, 1] < 1_300_000  # N plausible
+    assert np.all(np.diff(cl.distance_m) > 0)
 
-    cfg = load_stage("stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml")
+
+@pytest.mark.network
+def test_build_centerline_reel_osm() -> None:
+    # routage OSM réel entre 2 bornes (le seed utilise désormais un GPX)
+    cfg = StageConfig(
+        name="t",
+        title="t",
+        waypoints=[
+            {"role": "start", "lat": 46.173, "lon": 7.022},
+            {"role": "end", "lat": 46.144, "lon": 7.038},
+        ],
+    )
     cl = build_centerline(cfg)
-    assert cl.length_m > 2000.0  # spéciale de plusieurs km
+    assert cl.length_m > 2000.0
     assert cl.crs == "EPSG:2056"

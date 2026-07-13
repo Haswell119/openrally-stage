@@ -9,8 +9,8 @@ from rsb.config import (
     BBox,
     StageConfig,
     SurfaceKind,
-    WaypointRole,
     load_stage,
+    resolve_gpx_path,
 )
 
 SEED = Path("stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml")
@@ -29,14 +29,29 @@ def test_seed_stage_charge_et_valide() -> None:
     assert cfg.name == "chablais-2026-ss5-9-evionnaz-vernayaz"
     assert cfg.crs.work == "EPSG:2056"
     assert cfg.default_surface is SurfaceKind.TARMAC
-    # start puis end
-    assert cfg.waypoints[0].role is WaypointRole.START
-    assert cfg.waypoints[-1].role is WaypointRole.END
-    # bornes RÉELLES (converties depuis DMS fournis par l'utilisateur)
-    assert cfg.waypoints[0].lat == pytest.approx(46.173415, abs=1e-5)
-    assert cfg.waypoints[0].lon == pytest.approx(7.021605, abs=1e-5)
-    assert cfg.waypoints[-1].lat == pytest.approx(46.143834, abs=1e-5)
-    assert cfg.waypoints[-1].lon == pytest.approx(7.037698, abs=1e-5)
+    # source = GPX (tracé réel) ; chemin résolu, pas de waypoints
+    assert cfg.gpx is not None and cfg.gpx.endswith("stage.gpx")
+    assert cfg.waypoints == []
+
+
+def test_config_gpx_sans_waypoints_valide() -> None:
+    cfg = StageConfig(name="x", title="x", gpx="t.gpx")
+    assert cfg.gpx == "t.gpx"
+    assert cfg.waypoints == []
+
+
+def test_ni_gpx_ni_waypoints_invalide() -> None:
+    with pytest.raises(ValidationError):
+        StageConfig(name="x", title="x")  # ni gpx ni assez de waypoints
+
+
+def test_resolve_gpx_path_relatif(tmp_path: Path) -> None:
+    cfg = StageConfig(name="x", title="x", gpx="stage.gpx")
+    out = resolve_gpx_path(cfg, tmp_path)
+    assert out.gpx == str(tmp_path / "stage.gpx")
+    # chemin absolu inchangé
+    abs_cfg = StageConfig(name="x", title="x", gpx="/abs/stage.gpx")
+    assert resolve_gpx_path(abs_cfg, tmp_path).gpx == "/abs/stage.gpx"
 
 
 def test_waypoints_exigent_un_start_et_un_end() -> None:

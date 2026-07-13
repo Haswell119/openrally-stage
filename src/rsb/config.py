@@ -154,12 +154,21 @@ class StageConfig(BaseModel):
     route: RouteConfig = Field(default_factory=RouteConfig)
     camber: CamberConfig = Field(default_factory=CamberConfig)
 
-    waypoints: list[Waypoint] = Field(..., min_length=2)
+    gpx: str | None = Field(
+        default=None,
+        description="Chemin d'un GPX (tracé réel) — source alternative aux waypoints.",
+    )
+    waypoints: list[Waypoint] = Field(default_factory=list)
     default_surface: SurfaceKind = Field(default=SurfaceKind.TARMAC)
     surface_overrides: list[SurfaceSegment] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _check_waypoints(self) -> Self:
+    def _check_source(self) -> Self:
+        # source = GPX (tracé réel) OU waypoints (routage OSM). Au moins l'une.
+        if self.gpx is not None:
+            return self  # les waypoints sont facultatifs quand un GPX est fourni
+        if len(self.waypoints) < 2:
+            raise ValueError("il faut soit un `gpx`, soit au moins 2 waypoints")
         roles = [wp.role for wp in self.waypoints]
         n_start = roles.count(WaypointRole.START)
         n_end = roles.count(WaypointRole.END)
@@ -185,27 +194,50 @@ class StageConfig(BaseModel):
     def effective_bbox(self) -> BBox:
         """bbox explicite si fournie, sinon dérivée des waypoints + marge.
 
-        La marge (mètres) est convertie approximativement en degrés
-        (1° lat ≈ 111 320 m ; longitude corrigée par cos(lat)).
+        (Non applicable à une source GPX : la bbox y est dérivée du tracé.)
         """
         if self.bbox is not None:
             return self.bbox
+        if not self.waypoints:
+            raise ValueError(
+                "effective_bbox : ni bbox explicite ni waypoints "
+                "(source GPX → bbox dérivée du tracé, voir pipeline)"
+            )
         lats = [wp.lat for wp in self.waypoints]
         lons = [wp.lon for wp in self.waypoints]
-        mid_lat = (min(lats) + max(lats)) / 2.0
-        d_lat = self.bbox_margin_m / 111_320.0
-        d_lon = self.bbox_margin_m / (111_320.0 * max(math.cos(math.radians(mid_lat)), 1e-6))
-        return BBox(
-            min_lon=min(lons) - d_lon,
-            min_lat=min(lats) - d_lat,
-            max_lon=max(lons) + d_lon,
-            max_lat=max(lats) + d_lat,
-        )
+        return bbox_from_points(lats, lons, self.bbox_margin_m)
+
+
+def bbox_from_points(lats: list[float], lons: list[float], margin_m: float) -> BBox:
+    """bbox WGS84 englobant des points + marge (m).
+
+    La marge est convertie en degrés (1° lat ≈ 111 320 m ; longitude ~ cos(lat)).
+    """
+    mid_lat = (min(lats) + max(lats)) / 2.0
+    d_lat = margin_m / 111_320.0
+    d_lon = margin_m / (111_320.0 * max(math.cos(math.radians(mid_lat)), 1e-6))
+    return BBox(
+        min_lon=min(lons) - d_lon,
+        min_lat=min(lats) - d_lat,
+        max_lon=max(lons) + d_lon,
+        max_lat=max(lats) + d_lat,
+    )
 
 
 def load_stage(path: str | Path) -> StageConfig:
-    """Charge et valide un ``stage.toml``."""
+    """Charge et valide un ``stage.toml``. Résout un ``gpx`` relatif au fichier."""
     p = Path(path)
     with p.open("rb") as fh:
         raw = tomllib.load(fh)
-    return StageConfig.model_validate(raw)
+    cfg = StageConfig.model_validate(raw)
+    return resolve_gpx_path(cfg, p.parent)
+
+
+def resolve_gpx_path(cfg: StageConfig, base_dir: Path) -> StageConfig:
+    """Rend le chemin ``gpx`` absolu (relatif à ``base_dir`` si nécessaire)."""
+    if cfg.gpx is None:
+        return cfg
+    gpx_path = Path(cfg.gpx)
+    if not gpx_path.is_absolute():
+        gpx_path = base_dir / gpx_path
+    return cfg.model_copy(update={"gpx": str(gpx_path)})

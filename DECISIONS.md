@@ -38,6 +38,20 @@ toucher** au reste du pipeline (drape, camber, bundle ne connaissent que l'ABC).
 
 ---
 
+## 2026-07-13 — Source de tracé : GPX (trace réelle) en plus du routage OSM
+
+**Décision.** Une spéciale peut être définie par un **GPX** (`gpx = "…"` dans le
+`stage.toml`) au lieu de waypoints. Le GPX est utilisé **directement** comme
+centerline (projection + rééchantillonnage), sans routage OSM ; l'altitude vient
+toujours du MNT (drape). `build_stage` dérive alors la bbox MNT du tracé lui-même.
+Les waypoints/OSM restent le mode par défaut sans GPX.
+
+**Justification.** Un GPX de roadbook est le tracé RÉEL et dense de la spéciale :
+il donne la longueur à quelques mètres près (ex. Evionnaz–Vernayaz : 5390 m pour
+~5380 m attendus, vs 5582 m par routage OSM). C'est plus fidèle et sans ambiguïté
+de snapping. **Contenu tiers** (rally-maps) : les `*.gpx` sont **gitignorés** et
+non redistribués — le dépôt ne contient que la référence de chemin.
+
 ## 2026-07-13 — Niveau RALLYE : orchestration multi-spéciales
 
 **Décision.** Un rallye = `stages/<rallye>/rally.toml` + un sous-dossier
