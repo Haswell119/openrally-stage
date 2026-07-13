@@ -1,0 +1,133 @@
+# DECISIONS.md — journal des décisions d'architecture
+
+Chaque choix d'architecture significatif est consigné ici : date, décision,
+justification. Le plus récent en haut.
+
+---
+
+## 2026-07-13 — T0 : stack, packaging et hygiène du dépôt public
+
+**Décision.** Python 3.11+, gestion des dépendances et de l'environnement avec
+`uv`. Packaging `src/rsb` via `hatchling`. Qualité : `ruff` (lint + format),
+`mypy --strict`, `pytest`. CI GitHub Actions exécutant lint + typecheck + tests
+hors-ligne.
+
+**Justification.** `uv` est rapide et reproductible. La disposition `src/`
+évite les imports accidentels depuis le répertoire de travail. `mypy --strict`
+impose le typing strict demandé. Les tests réseau (swisstopo/OSM) sont marqués
+`@pytest.mark.network` et **exclus de la CI** pour garder celle-ci déterministe
+et rapide ; le cœur géométrique est testé sur des fixtures synthétiques.
+
+**Hygiène publique.** `LICENSE` MIT (code), `ATTRIBUTION.md` (OSM ODbL —
+attribution obligatoire ; swisstopo OGD — mention appréciée), `.gitignore`
+excluant `data/`, `outputs/`, `*.tif`, `*.kn5`, `*.fbx`, `.env`. Aucune
+géodonnée ni secret n'est committé.
+
+---
+
+## 2026-07-13 — T2 : altimétrie derrière `DEMProvider` (strategy pattern)
+
+**Décision.** L'accès à l'altitude passe par une ABC `DEMProvider` exposant une
+API minimale (récupérer les tuiles / échantillonner Z sur une bbox).
+`SwissAlti3DProvider` est la première implémentation (STAC swisstopo,
+`ch.swisstopo.swissalti3d`, GeoTIFF 0,5 m, EPSG:2056).
+
+**Justification.** *Suisse-first, pas Suisse-locked.* L'inversion de dépendance
+permet d'ajouter IGN (France), PNOA (Espagne), Copernicus (Europe) **sans
+toucher** au reste du pipeline (drape, camber, bundle ne connaissent que l'ABC).
+
+---
+
+## 2026-07-13 — Profil d'altitude cohérent : dé-spiking réutilisable
+
+**Décision.** Après le drapage, l'altitude de la centerline passe par
+``despike_elevation`` (``geo/drape.py``), algorithme **réutilisable** : (1) filtre
+de Hampel (médiane glissante + MAD) sur plusieurs passes avec interpolation des
+points aberrants ; (2) garde-fou de pente **itératif** détectant la pente
+**segment-à-segment** (et non la différence centrée, qui laisse passer les pics
+en zigzag) et « pontifiant » les zones de pente non physique ; (3) lissage final.
+Appliqué au profil de la **route** uniquement ; le **terrain** reste brut.
+
+**Justification.** Le MNT bare-earth plonge sous les ponts/passages (Rhône, rail)
+→ pics d'altitude absurdes (jusqu'à ~105 % de pente sur Evionnaz). Après
+traitement : pente max ~19 % (bornée), les vraies montées/descentes et un vrai
+tablier de pont (~3 m) sont préservés, les artefacts supprimés. La route franchit
+proprement le ravin pendant que le terrain garde son relief réel.
+
+## 2026-07-13 — Source de tracé : GPX (trace réelle) en plus du routage OSM
+
+**Décision.** Une spéciale peut être définie par un **GPX** (`gpx = "…"` dans le
+`stage.toml`) au lieu de waypoints. Le GPX est utilisé **directement** comme
+centerline (projection + rééchantillonnage), sans routage OSM ; l'altitude vient
+toujours du MNT (drape). `build_stage` dérive alors la bbox MNT du tracé lui-même.
+Les waypoints/OSM restent le mode par défaut sans GPX.
+
+**Justification.** Un GPX de roadbook est le tracé RÉEL et dense de la spéciale :
+il donne la longueur à quelques mètres près (ex. Evionnaz–Vernayaz : 5390 m pour
+~5380 m attendus, vs 5582 m par routage OSM). C'est plus fidèle et sans ambiguïté
+de snapping. **Contenu tiers** (rally-maps) : les `*.gpx` sont **gitignorés** et
+non redistribués — le dépôt ne contient que la référence de chemin.
+
+## 2026-07-13 — Niveau RALLYE : orchestration multi-spéciales
+
+**Décision.** Un rallye = `stages/<rallye>/rally.toml` + un sous-dossier
+`stage.toml` par spéciale. `rally.toml` porte des **valeurs par défaut**
+(deep-merge sous chaque `stage.toml`, le stage gagne) et la liste des SS.
+`build_rally` construit toutes les spéciales en **partageant le cache** MNT/OSM,
+**saute** celles déjà construites (idempotence par `bundle.json`), est
+**résilient** (une SS en échec n'interrompt pas le lot ; statut par spéciale), et
+produit `rally.json` + une carte d'ensemble. CLI : `build-rally`, `list`,
+`new-stage`.
+
+**Justification.** Un rallye réel compte 10–16 spéciales (parfois le même tracé
+couru deux fois, ex. SS5/SS9). Sans orchestration, l'utilisateur répète la config
+et perd tout le lot au premier échec. Les défauts hérités (DRY) et la résilience
+rendent l'outil utilisable pour un **rallye entier**, pas seulement une spéciale.
+
+## 2026-07-13 — T3 : routage WGS84 puis projection ; nearest_node maison
+
+**Décision.** La centerline route sur le graphe OSM **non projeté** (osmnx 2.x,
+`graph_from_bbox(bbox=(W,S,E,N))`, filtre `custom_filter` permissif), suit la
+géométrie réelle des arêtes, **puis** projette la polyligne en EPSG:2056 avant le
+rééchantillonnage. Le snapping des waypoints utilise un `nearest_node` maison
+(équirectangulaire).
+
+**Justification.** osmnx calcule `length` en mètres même sur graphe géographique,
+donc le routage est correct sans projeter tout le graphe. `nearest_node` maison
+évite la dépendance lourde **scikit-learn** (BallTree) exigée par
+`osmnx.nearest_nodes` sur graphe non projeté. Cœur géométrique pur (resample,
+caps, stitching) testé sans réseau.
+
+## 2026-07-13 — T5 : convention de dévers + lissage médian
+
+**Décision.** `camber_rad` **positif = la route penche à droite** (bord droit
+plus bas), ajusté sur la portion centrale (largeur route). La largeur est
+détectée depuis le MNT **seulement** en cas de rupture bilatérale nette
+(plateforme/digue), sinon retour à la largeur config. Un filtre **médian** le
+long du tracé (`camber.smooth_window_m`) atténue les pics de bruit du MNT.
+
+**Justification.** Le MNT bare-earth ne révèle la largeur de route que sur les
+talus ; ailleurs la config est plus honnête qu'une détection hasardeuse. Le
+médian est robuste aux pics ponctuels (ponts, bords de talus) sans écraser les
+tendances réelles.
+
+## 2026-07-13 — T8/T9 : formats IR + preview AVANT KN5
+
+**Décision.** La bundle sérialise en **GeoJSON** (EPSG:2056) + **OBJ** (mesh
+corridor) + un **CSV localisé** aligné sur la convention d'axes de
+`io_import_accsv` (colonnes AC X, Z, Y ; origine locale dans le manifeste). La
+**preview 3D matplotlib** est produite systématiquement.
+
+**Justification.** GeoJSON/OBJ sont universels et inspectables. Le CSV localisé
+rend le passage à Blender immédiat. La preview permet de **valider avant**
+d'investir dans le maillon manuel coûteux (KN5).
+
+## 2026-07-13 — IR : stage bundle agnostique de l'éditeur (inversion de dépendance)
+
+**Décision.** Le pipeline produit une **représentation intermédiaire (IR)** —
+la *stage bundle* — qui ne dépend d'**aucun** éditeur. Les exporteurs (Blender,
+RTB) sont des **adaptateurs** qui consomment l'IR.
+
+**Justification.** Découpler la géométrie de rallye (centerline + Z + camber +
+surfaces + barriers + mesh) de la cible d'export. On peut valider l'IR en 3D
+(matplotlib) **avant** d'investir dans le maillon manuel coûteux (Blender/KN5).

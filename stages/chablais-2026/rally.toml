@@ -1,0 +1,81 @@
+# =============================================================================
+# Rallye du Chablais 2026 — configuration RALLYE (plusieurs spéciales)
+#
+# Un rallye = plusieurs spéciales (SS). Ce fichier liste les spéciales et fournit
+# des VALEURS PAR DÉFAUT héritées par chaque stage.toml (pour ne pas répéter le
+# CRS / le provider / la largeur sur 15 spéciales). Chaque stage.toml peut
+# surcharger n'importe quel défaut.
+#
+# Construire tout le rallye :   uv run rsb build-rally stages/chablais-2026
+# Lister les spéciales :        uv run rsb list stages/chablais-2026
+# Ajouter une spéciale :        uv run rsb new-stage stages/chablais-2026 ss3-nom
+#
+# ⚠️  Waypoints/segments = SEED (approximatifs). Affinez-les depuis votre roadbook
+#     (usage HUMAIN ; jamais de scraping de rally-maps).
+# =============================================================================
+
+name = "chablais-2026"
+title = "Rallye du Chablais 2026"
+country = "CH"
+
+# Provider d'altimétrie du rallye (Suisse → swissALTI3D). Ajoutable : voir DEMProvider.
+dem_provider = "swissalti3d"
+dem_resolution = 0.5
+
+# --- Défauts hérités par chaque spéciale (deep-merge ; la spéciale surcharge) --
+[defaults.crs]
+geographic = "EPSG:4326"
+work = "EPSG:2056"
+
+[defaults.route]
+default_width_m = 6.0
+resample_step_m = 2.0
+network_filter = "permissive"
+simplify = true
+
+[defaults.camber]
+cross_section_width_m = 12.0
+n_samples = 21
+smooth_window_m = 5.0
+
+# --- Spéciales du rallye ------------------------------------------------------
+# Chaque entrée pointe vers un sous-dossier contenant un stage.toml.
+# `ss` = numéros de spéciale où ce tracé est couru (une même route peut être
+# courue plusieurs fois, ex. SS5 et SS9).
+
+# Traces GPX (contenu rally-maps, gitignoré, non redistribué) attendues localement :
+#   • Rallye_du_Chablais_2026.gpx  (multi-spéciales, à la racine de ce dossier)
+#   • ss5-9-evionnaz-vernayaz/stage.gpx  (spéciale fournie séparément)
+
+[[stages]]
+id = "ss1-leysin"
+ss = [1]
+
+[[stages]]
+id = "ss2-6-panex"
+ss = [2, 6]
+
+[[stages]]
+id = "ss3-7-col-de-la-croix"
+ss = [3, 7]
+
+[[stages]]
+id = "ss4-8-tour-d-ai"
+ss = [4, 8]
+
+[[stages]]
+id = "ss5-9-evionnaz-vernayaz"
+ss = [5, 9]
+note = "Plaine du Rhône. GPX propre (stage.gpx)."
+
+[[stages]]
+id = "ss10-13-collombey-muraz"
+ss = [10, 13]
+
+[[stages]]
+id = "ss11-14-les-rives"
+ss = [11, 14]
+
+[[stages]]
+id = "ss12-15-portes-du-soleil"
+ss = [12, 15]

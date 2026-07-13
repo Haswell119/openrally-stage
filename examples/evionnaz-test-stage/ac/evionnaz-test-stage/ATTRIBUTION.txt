@@ -1,0 +1,14 @@
+Piste générée par rally-stage-builder (démo / test stage).
+
+Données source (redistribuables AVEC attribution) :
+  • Réseau routier : © OpenStreetMap contributors — licence ODbL
+    https://www.openstreetmap.org/copyright
+  • Altitude (terrain) : Source — Office fédéral de topographie swisstopo
+    (swissALTI3D, Open Government Data)
+
+Recréation à usage simulation personnel. Ce dossier est un DEMONSTRATEUR :
+le tracé est routé sur OSM entre 2 points (pas le tracé exact de la vraie
+spéciale). Aucune donnée rally-maps n'est incluse.
+
+Il manque le modèle compilé evionnaz-test-stage.kn5 : générez-le depuis
+evionnaz-test-stage.fbx dans ksEditor (voir README_IMPORT.txt).

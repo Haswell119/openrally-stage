@@ -1,0 +1,39 @@
+# =============================================================================
+# Rallye du Chablais 2026 — SS5/9 « Evionnaz–Vernayaz »
+# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate, ~5,4 km.
+#
+# SOURCE = GPX (tracé RÉEL de la spéciale, fourni par l'utilisateur depuis son
+# roadbook / rally-maps). Le GPX fait foi : il est utilisé DIRECTEMENT comme
+# centerline (projeté + rééchantillonné) puis drapé sur swissALTI3D. Pas de
+# routage OSM ici.
+#
+# ⚠️  Le fichier GPX est un contenu tiers : gardé LOCAL (gitignoré), non
+#     redistribué. Placez votre `stage.gpx` dans ce dossier.
+# =============================================================================
+
+name = "chablais-2026-ss5-9-evionnaz-vernayaz"
+title = "Rallye du Chablais 2026 — SS5/9 Evionnaz–Vernayaz"
+description = "Recréation de la spéciale Evionnaz–Vernayaz (plaine du Rhône, Valais). Usage simulation personnel."
+direction = "Evionnaz → Vernayaz"
+
+# Tracé source : GPX (relatif à ce fichier). Remplace les waypoints/routage OSM.
+gpx = "stage.gpx"
+
+default_surface = "tarmac"
+bbox_margin_m = 400.0
+
+[crs]
+geographic = "EPSG:4326"
+work = "EPSG:2056"
+
+[route]
+default_width_m = 6.0
+resample_step_m = 2.0
+# network_filter/simplify inutilisés en mode GPX (conservés pour un éventuel
+# repli sur le routage OSM si `gpx` est retiré).
+network_filter = "permissive"
+simplify = true
+
+[camber]
+cross_section_width_m = 12.0
+n_samples = 21
