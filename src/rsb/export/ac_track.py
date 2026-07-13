@@ -340,9 +340,18 @@ def _geometry_block(gid: int, mesh: NamedMesh) -> str:
 		}}
 		Layer: 0 {{
 			Version: 100
-			LayerElement:  {{ Type: "LayerElementNormal"; TypedIndex: 0 }}
-			LayerElement:  {{ Type: "LayerElementUV"; TypedIndex: 0 }}
-			LayerElement:  {{ Type: "LayerElementMaterial"; TypedIndex: 0 }}
+			LayerElement:  {{
+				Type: "LayerElementNormal"
+				TypedIndex: 0
+			}}
+			LayerElement:  {{
+				Type: "LayerElementUV"
+				TypedIndex: 0
+			}}
+			LayerElement:  {{
+				Type: "LayerElementMaterial"
+				TypedIndex: 0
+			}}
 		}}
 	}}"""
 

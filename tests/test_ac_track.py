@@ -113,3 +113,19 @@ def test_write_fbx_structure() -> None:
     assert "Model::AC_PIT_0" in fbx
     assert "Connections:" in fbx
     assert 'C: "OO"' in fbx
+
+
+def test_fbx_ascii_accolades_equilibrees_hors_commentaires() -> None:
+    # RÉGRESSION : en FBX ASCII, ';' démarre un commentaire jusqu'à la fin de ligne
+    # → une accolade fermante après un ';' est « avalée » (ksEditor voit un point).
+    cl = _straight_east()
+    dem = DEMRaster.from_plane(origin=(1990.0, 1130.0), res=1.0, shape=(80, 120), slope_y=0.3)
+    cl.z = dem.sample(cl.xy)
+    track = build_ac_track(cl, dem, "demo", default_width=6.0)
+    fbx = write_fbx(track)
+    depth = 0
+    for line in fbx.splitlines():
+        code = line.split(";", 1)[0]  # retire le commentaire FBX
+        depth += code.count("{") - code.count("}")
+        assert depth >= 0, "accolade fermante avant ouvrante"
+    assert depth == 0, "accolades déséquilibrées (commentaire ';' avale une '}')"
