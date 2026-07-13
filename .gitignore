@@ -15,8 +15,8 @@ dist/
 .ruff_cache/
 .install.log
 
-# Géodonnées téléchargées — NE JAMAIS COMMITTER
-data/
+# Géodonnées téléchargées — NE JAMAIS COMMITTER (ancré à la racine)
+/data/
 *.tif
 *.tiff
 cache/
@@ -25,8 +25,8 @@ osmnx_cache/
 # Traces GPX (roadbook / rally-maps) — contenu tiers, NE PAS REDISTRIBUER
 *.gpx
 
-# Sorties générées (bundles, mesh, previews) — NE JAMAIS COMMITTER
-outputs/
+# Sorties générées (bundles, mesh, previews) — NE JAMAIS COMMITTER (ancré racine)
+/outputs/
 
 # Formats 3D / éditeur lourds
 *.fbx
@@ -48,3 +48,10 @@ Thumbs.db
 
 # Scratch recherche (ne pas committer)
 .research_briefs.json
+
+# EXCEPTION : exemple/preview PUBLIC committé (piste démo OSM + swissALTI3D,
+# redistribuable AVEC attribution ; voir examples/.../ATTRIBUTION.txt). Les GPX
+# rally-maps restent exclus partout.
+!examples/
+!examples/**
+examples/**/*.gpx

@@ -1,0 +1,45 @@
+# =============================================================================
+# TEST STAGE — Evionnaz–Vernayaz (démo publique du dépôt)
+#
+# Construit UNIQUEMENT depuis des données REDISTRIBUABLES :
+#   • réseau routier OpenStreetMap (ODbL) — routage entre 2 bornes publiques ;
+#   • altitude swissALTI3D swisstopo (OGD).
+# AUCUN GPX rally-maps ici → le dossier piste généré peut être versionné et
+# redistribué AVEC attribution (voir track/ATTRIBUTION.txt).
+#
+# Ce n'est PAS le tracé exact de la vraie spéciale (routage OSM à 2 points) :
+# c'est une démonstration montrant que le pipeline produit une piste AC.
+# =============================================================================
+
+name = "evionnaz-test-stage"
+title = "rally-stage-builder — TEST STAGE Evionnaz"
+direction = "Evionnaz → Vernayaz"
+default_surface = "tarmac"
+bbox_margin_m = 300.0
+
+[crs]
+geographic = "EPSG:4326"
+work = "EPSG:2056"
+
+[route]
+default_width_m = 6.0
+resample_step_m = 2.0
+network_filter = "permissive"
+simplify = true
+
+[camber]
+cross_section_width_m = 12.0
+n_samples = 21
+
+# Bornes = 2 coordonnées publiques (villages), routées sur OSM.
+[[waypoints]]
+role = "start"
+name = "Evionnaz"
+lat = 46.173415
+lon = 7.021605
+
+[[waypoints]]
+role = "end"
+name = "Vernayaz"
+lat = 46.143834
+lon = 7.037698

@@ -1,0 +1,14 @@
+{
+  "name": "evionnaz-test-stage",
+  "description": "Spéciale générée par rally-stage-builder (usage simulation personnel).",
+  "tags": [
+    "rally",
+    "point to point"
+  ],
+  "country": "Switzerland",
+  "length": "3783",
+  "pitboxes": "1",
+  "run": "point to point",
+  "author": "rally-stage-builder",
+  "version": "0.1"
+}
