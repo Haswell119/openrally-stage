@@ -128,6 +128,11 @@ class CamberConfig(BaseModel):
     n_samples: int = Field(
         default=21, ge=3, description="Nombre d'échantillons par coupe (impair conseillé)."
     )
+    smooth_window_m: float = Field(
+        default=5.0,
+        ge=0.0,
+        description="Fenêtre de lissage médian du dévers/largeur (m ; 0 = aucun lissage).",
+    )
 
 
 class StageConfig(BaseModel):

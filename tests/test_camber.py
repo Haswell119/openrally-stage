@@ -14,6 +14,7 @@ from rsb.geo.camber import (
     fit_cross_slope,
     right_units,
     sample_cross_sections,
+    smooth_along_track,
 )
 from rsb.ir.types import Centerline
 from rsb.providers.dem import DEMRaster
@@ -97,6 +98,16 @@ def test_width_fallback_defaut_en_terrain_plat() -> None:
     Z = sample_cross_sections(dem, cl.xy, cl.heading_rad, offsets)
     widths = estimate_widths(offsets, Z, road_width=6.0, default_width=6.0)
     assert np.allclose(widths, 6.0, atol=1e-6)
+
+
+def test_smooth_along_track_supprime_pic_isole() -> None:
+    d = np.arange(20, dtype=float)  # pas 1 m
+    v = np.zeros(20)
+    v[10] = 40.0  # pic aberrant isolé
+    out = smooth_along_track(v, d, window_m=5.0)
+    assert out[10] == pytest.approx(0.0)  # la médiane écrase le pic
+    # fenêtre 0 → aucun lissage
+    assert np.allclose(smooth_along_track(v, d, 0.0), v)
 
 
 def test_compute_camber_renseigne_les_champs() -> None:

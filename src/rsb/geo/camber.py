@@ -138,12 +138,37 @@ def estimate_widths(
     return widths
 
 
+def smooth_along_track(values: FloatArray, distance_m: FloatArray, window_m: float) -> FloatArray:
+    """Filtre médian le long du tracé (robuste aux pics de bruit du MNT).
+
+    ``window_m <= 0`` → aucun lissage. La fenêtre est convertie en nombre impair
+    d'échantillons à partir du pas médian.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    if window_m <= 0 or len(values) < 3:
+        return values
+    from scipy.ndimage import median_filter
+
+    steps = np.diff(np.asarray(distance_m, dtype=np.float64))
+    step = float(np.median(steps)) if len(steps) else 1.0
+    size = max(3, int(round(window_m / step)) if step > 0 else 3)
+    if size % 2 == 0:
+        size += 1
+    return np.asarray(median_filter(values, size=size, mode="nearest"), dtype=np.float64)
+
+
 def compute_camber(
     cl: Centerline, dem: DEMRaster, cfg: CamberConfig, default_width: float
 ) -> Centerline:
-    """Renseigne ``cl.camber_rad`` et ``cl.width_m`` (mutation en place)."""
+    """Renseigne ``cl.camber_rad`` et ``cl.width_m`` (mutation en place).
+
+    Un filtre médian (``cfg.smooth_window_m``) atténue les pics de dévers/largeur
+    dus au bruit du MNT (bords de talus, ponts, végétation).
+    """
     offsets = cross_offsets(cfg.cross_section_width_m, cfg.n_samples)
     Z = sample_cross_sections(dem, cl.xy, cl.heading_rad, offsets)
-    cl.camber_rad = fit_cross_slope(offsets, Z, road_width=default_width)
-    cl.width_m = estimate_widths(offsets, Z, road_width=default_width, default_width=default_width)
+    camber = fit_cross_slope(offsets, Z, road_width=default_width)
+    width = estimate_widths(offsets, Z, road_width=default_width, default_width=default_width)
+    cl.camber_rad = smooth_along_track(camber, cl.distance_m, cfg.smooth_window_m)
+    cl.width_m = smooth_along_track(width, cl.distance_m, cfg.smooth_window_m)
     return cl
