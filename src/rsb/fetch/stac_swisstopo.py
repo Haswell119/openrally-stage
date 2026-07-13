@@ -111,14 +111,19 @@ def download_assets(
 ) -> list[Path]:
     """Télécharge les tuiles dans ``cache_dir`` (idempotent : saute si déjà là)."""
     cache_dir.mkdir(parents=True, exist_ok=True)
+    owns_session = session is None
     sess = session or requests.Session()
     paths: list[Path] = []
-    for asset in assets:
-        fname = asset.href.rsplit("/", 1)[-1]
-        dst = cache_dir / fname
-        if not dst.exists() or dst.stat().st_size == 0:
-            _download_one(asset.href, dst, sess, timeout)
-        paths.append(dst)
+    try:
+        for asset in assets:
+            fname = asset.href.rsplit("/", 1)[-1]
+            dst = cache_dir / fname
+            if not dst.exists() or dst.stat().st_size == 0:
+                _download_one(asset.href, dst, sess, timeout)
+            paths.append(dst)
+    finally:
+        if owns_session:
+            sess.close()  # ne ferme pas une session fournie par l'appelant
     return paths
 
 

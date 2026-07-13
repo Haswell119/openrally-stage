@@ -15,6 +15,7 @@ ne dépend **que** de :
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -197,14 +198,12 @@ class DEMRaster:
 
         if not paths:
             raise ValueError("mosaic_geotiffs : aucune tuile fournie")
-        srcs = [rasterio.open(p) for p in paths]
-        try:
+        # ExitStack ferme tous les datasets déjà ouverts même si un open échoue.
+        with ExitStack() as stack:
+            srcs = [stack.enter_context(rasterio.open(p)) for p in paths]
             arr, transform = merge(srcs, bounds=bounds)
             src_crs = crs or (str(srcs[0].crs) if srcs[0].crs else "EPSG:2056")
             nodata = srcs[0].nodata
-        finally:
-            for s in srcs:
-                s.close()
         data = np.asarray(arr[0])
         return cls(data=data, transform=transform, crs=src_crs, nodata=nodata)
 
