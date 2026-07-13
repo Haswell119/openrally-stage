@@ -6,7 +6,12 @@ import numpy as np
 import pytest
 from affine import Affine
 
-from rsb.fetch.stac_swisstopo import is_geotiff_at_resolution
+from rsb.fetch.stac_swisstopo import (
+    TileAsset,
+    _dedup_latest_year,
+    is_geotiff_at_resolution,
+    parse_item_id,
+)
 from rsb.providers.dem import DEMRaster, SwissAlti3DProvider
 
 
@@ -99,6 +104,22 @@ def test_predicat_selection_geotiff() -> None:
     assert not is_geotiff_at_resolution("application/x.ascii-xyz+zip", 0.5, 0.5)
     assert not is_geotiff_at_resolution(None, 0.5, 0.5)
     assert not is_geotiff_at_resolution(gt, None, 0.5)
+
+
+def test_parse_item_id() -> None:
+    assert parse_item_id("swissalti3d_2019_2568-1111") == ("2568-1111", 2019)
+    assert parse_item_id("swissalti3d_2020_2600-1198_0.5_2056_5728") == ("2600-1198", 2020)
+    assert parse_item_id("bogus") is None
+
+
+def test_dedup_garde_annee_la_plus_recente() -> None:
+    # même tuile 2568-1111 en 2019 et 2020 → on garde 2020 ; tuile voisine gardée
+    a2019 = TileAsset("swissalti3d_2019_2568-1111", "k", "h2019", 0.5)
+    a2020 = TileAsset("swissalti3d_2020_2568-1111", "k", "h2020", 0.5)
+    b = TileAsset("swissalti3d_2019_2569-1111", "k", "hb", 0.5)
+    out = _dedup_latest_year([a2019, a2020, b])
+    hrefs = {t.href for t in out}
+    assert hrefs == {"h2020", "hb"}
 
 
 def test_provider_metadata() -> None:

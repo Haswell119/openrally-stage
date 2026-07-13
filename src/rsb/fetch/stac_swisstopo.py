@@ -46,25 +46,60 @@ def is_geotiff_at_resolution(media_type: str | None, gsd: object, resolution: fl
         return False
 
 
+def parse_item_id(item_id: str) -> tuple[str, int] | None:
+    """Extrait (tuile, année) d'un id d'item swissALTI3D, ex.
+    ``swissalti3d_2019_2568-1111`` → (``"2568-1111"``, ``2019``). None si non reconnu."""
+    parts = item_id.split("_")
+    if len(parts) < 3:
+        return None
+    try:
+        return parts[2], int(parts[1])
+    except ValueError:
+        return None
+
+
+def _dedup_latest_year(found: list[TileAsset]) -> list[TileAsset]:
+    """Garde une seule tuile par emprise 1 km² : l'année d'acquisition la plus récente.
+
+    swissALTI3D expose parfois plusieurs millésimes (ex. 2019 ET 2020) pour la même
+    tuile ; les mosaïquer superposerait deux surfaces. On déduplique par tuile.
+    """
+    best: dict[str, tuple[int, TileAsset]] = {}
+    passthrough: list[TileAsset] = []
+    for asset in found:
+        parsed = parse_item_id(asset.item_id)
+        if parsed is None:
+            passthrough.append(asset)  # id non reconnu : on ne déduplique pas
+            continue
+        tile, year = parsed
+        if tile not in best or year > best[tile][0]:
+            best[tile] = (year, asset)
+    return [a for _, a in best.values()] + passthrough
+
+
 def search_assets(
     bbox_wgs84: tuple[float, float, float, float],
     resolution: float = 0.5,
     *,
     url: str = STAC_URL,
     collection: str = COLLECTION,
+    latest_year_only: bool = True,
 ) -> list[TileAsset]:
-    """Cherche les tuiles GeoTIFF intersectant ``bbox_wgs84`` à ``resolution`` (m)."""
+    """Cherche les tuiles GeoTIFF intersectant ``bbox_wgs84`` à ``resolution`` (m).
+
+    Par défaut, déduplique les tuiles multi-millésimes en gardant la plus récente.
+    """
     from pystac_client import Client
 
     client = Client.open(url)
     search = client.search(collections=[collection], bbox=list(bbox_wgs84))
     found: list[TileAsset] = []
     for item in search.items():
-        for key, asset in item.assets.items():
+        for _key, asset in item.assets.items():
             gsd = asset.extra_fields.get("gsd")
             if is_geotiff_at_resolution(asset.media_type, gsd, resolution):
-                found.append(TileAsset(item.id, key, asset.href, float(gsd)))  # type: ignore[arg-type]
-    return found
+                found.append(TileAsset(item.id, _key, asset.href, float(gsd)))  # type: ignore[arg-type]
+    return _dedup_latest_year(found) if latest_year_only else found
 
 
 def download_assets(
