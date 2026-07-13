@@ -3,7 +3,13 @@
 import numpy as np
 import pytest
 
-from rsb.geo.drape import drape_centerline, drape_z, fill_nan
+from rsb.geo.drape import (
+    despike_elevation,
+    drape_centerline,
+    drape_z,
+    fill_nan,
+    smooth_along_track,
+)
 from rsb.ir.types import Centerline
 from rsb.providers.dem import DEMRaster
 
@@ -64,6 +70,41 @@ def test_drape_remplit_les_nan_hors_emprise() -> None:
     xy = np.array([[2010.0, 1180.0], [5000.0, 1180.0], [2030.0, 1180.0]])
     z = drape_z(dem, xy, "EPSG:2056")
     assert not np.isnan(z).any()
+
+
+def test_despike_supprime_notch_garde_montee() -> None:
+    s = np.arange(0.0, 2000.0, 2.0)  # pas 2 m
+    z_true = 450.0 + 0.015 * s  # vraie montée douce (1,5 %)
+    z = z_true.copy()
+    notch = (s >= 1000.0) & (s < 1024.0)  # « pont » : chute aberrante de 8 m sur 24 m
+    z[notch] -= 8.0
+    out = despike_elevation(z, s)
+    # le notch est ponté (retour au niveau réel de la route)
+    assert np.max(np.abs(out[notch] - z_true[notch])) < 2.0
+    # la vraie montée est préservée (~30 m de dénivelé)
+    assert (out[-1] - out[0]) == pytest.approx(30.0, abs=3.0)
+
+
+def test_despike_supprime_pic_positif() -> None:
+    s = np.arange(0.0, 1000.0, 2.0)
+    z = np.full_like(s, 500.0)
+    z[200:205] += 12.0  # pic vers le haut (canopée/tablier)
+    out = despike_elevation(z, s)
+    assert np.max(np.abs(out - 500.0)) < 1.0
+
+
+def test_despike_profil_propre_inchange() -> None:
+    s = np.arange(0.0, 1000.0, 2.0)
+    z = 500.0 + 0.02 * s  # rampe régulière
+    out = despike_elevation(z, s)
+    assert np.allclose(out, z, atol=1.0)
+
+
+def test_smooth_along_track_importable_depuis_drape() -> None:
+    d = np.arange(10, dtype=float)
+    v = np.zeros(10)
+    v[5] = 5.0
+    assert smooth_along_track(v, d, 3.0)[5] == pytest.approx(0.0)
 
 
 def test_drape_preserve_les_autres_champs() -> None:

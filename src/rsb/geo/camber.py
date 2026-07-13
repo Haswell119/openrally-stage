@@ -20,7 +20,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from rsb.config import CamberConfig
-from rsb.geo.drape import fill_nan
+from rsb.geo.drape import fill_nan, smooth_along_track
 from rsb.ir.types import Centerline
 from rsb.providers.dem import DEMRaster
 
@@ -136,25 +136,6 @@ def estimate_widths(
             widths[i] = min(max(w, 0.5), window)
         # sinon : pas de rupture bilatérale claire → défaut (déjà en place)
     return widths
-
-
-def smooth_along_track(values: FloatArray, distance_m: FloatArray, window_m: float) -> FloatArray:
-    """Filtre médian le long du tracé (robuste aux pics de bruit du MNT).
-
-    ``window_m <= 0`` → aucun lissage. La fenêtre est convertie en nombre impair
-    d'échantillons à partir du pas médian.
-    """
-    values = np.asarray(values, dtype=np.float64)
-    if window_m <= 0 or len(values) < 3:
-        return values
-    from scipy.ndimage import median_filter
-
-    steps = np.diff(np.asarray(distance_m, dtype=np.float64))
-    step = float(np.median(steps)) if len(steps) else 1.0
-    size = max(3, int(round(window_m / step)) if step > 0 else 3)
-    if size % 2 == 0:
-        size += 1
-    return np.asarray(median_filter(values, size=size, mode="nearest"), dtype=np.float64)
 
 
 def compute_camber(

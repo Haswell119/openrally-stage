@@ -166,7 +166,7 @@ def build_detail_figure(bundle: StageBundle) -> Figure:
     """
     from matplotlib.gridspec import GridSpec
 
-    from rsb.geo.camber import smooth_along_track
+    from rsb.geo.drape import smooth_along_track
 
     cl = bundle.centerline
     z_raw = cl.require_z()

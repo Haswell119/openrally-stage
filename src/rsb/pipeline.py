@@ -14,7 +14,7 @@ from rsb.config import StageConfig, bbox_from_points
 from rsb.geo.barriers import build_barriers
 from rsb.geo.camber import compute_camber
 from rsb.geo.centerline import build_centerline, centerline_from_lonlat
-from rsb.geo.drape import drape_centerline
+from rsb.geo.drape import despike_centerline, drape_centerline
 from rsb.geo.gpx import load_gpx_track
 from rsb.geo.surface import assign_centerline_surfaces
 from rsb.ir.bundle import dem_corridor_mesh, write_bundle
@@ -63,6 +63,7 @@ def build_stage(
     else:
         cl = build_centerline(cfg, cache_dir=cache_dir, graph=graph)
     drape_centerline(cl, dem)
+    despike_centerline(cl)  # profil d'altitude cohérent (pics ponts/passages retirés)
     compute_camber(cl, dem, cfg.camber, cfg.route.default_width_m)
     assign_centerline_surfaces(cl, cfg)
     barriers = build_barriers(cl, dem=dem, default_width=cfg.route.default_width_m)

@@ -38,6 +38,22 @@ toucher** au reste du pipeline (drape, camber, bundle ne connaissent que l'ABC).
 
 ---
 
+## 2026-07-13 — Profil d'altitude cohérent : dé-spiking réutilisable
+
+**Décision.** Après le drapage, l'altitude de la centerline passe par
+``despike_elevation`` (``geo/drape.py``), algorithme **réutilisable** : (1) filtre
+de Hampel (médiane glissante + MAD) sur plusieurs passes avec interpolation des
+points aberrants ; (2) garde-fou de pente **itératif** détectant la pente
+**segment-à-segment** (et non la différence centrée, qui laisse passer les pics
+en zigzag) et « pontifiant » les zones de pente non physique ; (3) lissage final.
+Appliqué au profil de la **route** uniquement ; le **terrain** reste brut.
+
+**Justification.** Le MNT bare-earth plonge sous les ponts/passages (Rhône, rail)
+→ pics d'altitude absurdes (jusqu'à ~105 % de pente sur Evionnaz). Après
+traitement : pente max ~19 % (bornée), les vraies montées/descentes et un vrai
+tablier de pont (~3 m) sont préservés, les artefacts supprimés. La route franchit
+proprement le ravin pendant que le terrain garde son relief réel.
+
 ## 2026-07-13 — Source de tracé : GPX (trace réelle) en plus du routage OSM
 
 **Décision.** Une spéciale peut être définie par un **GPX** (`gpx = "…"` dans le

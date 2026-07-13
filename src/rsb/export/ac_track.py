@@ -25,8 +25,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from rsb.geo.camber import smooth_along_track
-from rsb.geo.drape import drape_z
+from rsb.geo.drape import drape_z, smooth_along_track
 from rsb.ir.types import Centerline
 from rsb.providers.dem import DEMRaster
 
