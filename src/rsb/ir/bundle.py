@@ -81,8 +81,10 @@ def dem_corridor_mesh(
     if not cell_ok.any():
         raise ValueError("mesh terrain vide : corridor hors emprise MNT ?")
 
-    t1 = np.stack([v00, v01, v11], axis=-1)[cell_ok]
-    t2 = np.stack([v00, v11, v10], axis=-1)[cell_ok]
+    # winding orienté vers le HAUT (normale +Z / +Y en axe AC) — sinon le terrain
+    # est éliminé par le back-face culling dans Assetto Corsa (invisible).
+    t1 = np.stack([v00, v11, v01], axis=-1)[cell_ok]
+    t2 = np.stack([v00, v10, v11], axis=-1)[cell_ok]
     faces = np.vstack([t1, t2])
 
     used = np.unique(faces)

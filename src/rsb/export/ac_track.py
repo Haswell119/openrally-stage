@@ -139,7 +139,11 @@ def build_kerbs(cl: Centerline, road_z: FloatArray, half_width: FloatArray) -> N
             )
             outer_xy = cl.xy[sl] + side * (hw + KERB_WIDTH_M) * left_u[sl]
             outer = np.column_stack([outer_xy, road_z[sl] + KERB_HEIGHT_M])
-            v, f = _ribbon(inner, outer)
+            # normale vers le HAUT des deux côtés : comme 1ROAD, le bord le plus
+            # « à gauche » (+left_u) passe en premier au ruban — sinon le côté
+            # droit est retourné vers le bas et éliminé par le back-face culling.
+            hi, lo = (outer, inner) if side > 0 else (inner, outer)
+            v, f = _ribbon(hi, lo)
             all_v.append(v)
             all_f.append(f + offset)
             offset += len(v)
@@ -184,6 +188,8 @@ def build_walls(
             bottom = np.column_stack([base_xy, road_z[sl]])
             top = np.column_stack([base_xy, road_z[sl] + WALL_HEIGHT_M])
             v, f = _ribbon(bottom, top)
+            # double face (visible des deux côtés — glissière vue depuis la route)
+            f = np.vstack([f, f[:, ::-1]])
             all_v.append(v)
             all_f.append(f + offset)
             offset += len(v)
