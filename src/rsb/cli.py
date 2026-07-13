@@ -71,6 +71,17 @@ def _cmd_preview(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_detail(args: argparse.Namespace) -> int:
+    from validate.preview3d import render_detail
+
+    bundle_dir = Path(args.bundle)
+    bundle = load_bundle(bundle_dir)
+    out = Path(args.out) if args.out else bundle_dir / "detail.png"
+    png = render_detail(bundle, out)
+    print(f"✓ Vue détaillée : {png}")
+    return 0
+
+
 def _cmd_build_rally(args: argparse.Namespace) -> int:
     from rsb.rally import build_rally
 
@@ -187,6 +198,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("bundle", help="dossier d'une stage bundle")
     v.add_argument("--out", help="chemin du PNG (défaut : <bundle>/preview.png)")
     v.set_defaults(func=_cmd_preview)
+
+    dt = sub.add_parser("detail", help="vue détaillée d'une spéciale (plan large + analyses)")
+    dt.add_argument("bundle", help="dossier d'une stage bundle")
+    dt.add_argument("--out", help="chemin du PNG (défaut : <bundle>/detail.png)")
+    dt.set_defaults(func=_cmd_detail)
 
     r = sub.add_parser("build-rally", help="construit TOUTES les spéciales d'un rallye")
     r.add_argument("rally", help="dossier du rallye (ou chemin d'un rally.toml)")

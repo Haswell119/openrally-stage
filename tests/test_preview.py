@@ -37,6 +37,14 @@ def test_render_preview_cree_png(tmp_path: Path) -> None:
     assert out.stat().st_size > 5000  # PNG non trivial
 
 
+def test_render_detail_cree_png(tmp_path: Path) -> None:
+    from validate.preview3d import render_detail
+
+    out = render_detail(_bundle(), tmp_path / "detail.png")
+    assert out.exists()
+    assert out.stat().st_size > 5000
+
+
 def test_load_bundle_roundtrip(tmp_path: Path) -> None:
     bundle = _bundle()
     write_bundle(bundle, tmp_path)
@@ -67,3 +75,5 @@ def test_cli_parser() -> None:
     assert args.dem_res == 2.0
     args2 = parser.parse_args(["preview", "outputs/demo"])
     assert args2.command == "preview"
+    args3 = parser.parse_args(["detail", "outputs/demo"])
+    assert args3.command == "detail"

@@ -73,6 +73,9 @@ uv run rsb new-stage stages/chablais-2026 ss3-mon-tracé
 
 # Ré-ouvrir une preview 3D depuis un bundle existant (sans réseau)
 uv run rsb preview outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
+
+# Vue DÉTAILLÉE d'une spéciale (plan large + virages + profil/pente/dévers)
+uv run rsb detail outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
 ```
 
 Les sorties (bundles, mesh, previews, carte du rallye) vont dans `outputs/` et
