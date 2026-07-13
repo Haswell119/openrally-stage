@@ -43,14 +43,17 @@ def test_load_rally_chablais() -> None:
     assert ss59.ss == [5, 9]
 
 
-def test_stage_demo_herite_des_defauts() -> None:
+def test_stage_gpx_herite_des_defauts() -> None:
     rally, base = load_rally(CHABLAIS)
-    ref = next(s for s in rally.stages if s.id == "ss-demo-plaine-evionnaz")
+    ref = next(s for s in rally.stages if s.id == "ss1-leysin")
     cfg = load_rally_stage(rally, base, ref)
-    # le stage.toml démo ne définit PAS ces valeurs → héritées des défauts du rallye
+    # le stage.toml ne définit PAS ces valeurs → héritées des défauts du rallye
     assert cfg.crs.work == "EPSG:2056"
     assert cfg.route.network_filter == "permissive"
     assert cfg.camber.smooth_window_m == 5.0
+    # source GPX multi-tracks : track sélectionnée, chemin résolu
+    assert cfg.gpx_track == "SS 1 - Leysin"
+    assert cfg.gpx is not None and cfg.gpx.endswith("Rallye_du_Chablais_2026.gpx")
 
 
 def test_provider_inconnu_leve() -> None:

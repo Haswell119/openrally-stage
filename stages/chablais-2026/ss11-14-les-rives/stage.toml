@@ -1,0 +1,10 @@
+# Rallye du Chablais 2026 — SS 11+14 - Les Rives
+# Source : GPX multi-spéciales partagé (rally-maps), track sélectionnée par nom.
+# Hérite des défauts du rallye (CRS, route, camber). Le GPX est LOCAL/gitignoré.
+
+name = "chablais-2026-ss11-14-les-rives"
+title = "Rallye du Chablais 2026 — SS 11+14 - Les Rives"
+default_surface = "tarmac"
+
+gpx = "../Rallye_du_Chablais_2026.gpx"
+gpx_track = "SS 11+14 - Les Rives"

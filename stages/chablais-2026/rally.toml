@@ -43,14 +43,39 @@ smooth_window_m = 5.0
 # `ss` = numéros de spéciale où ce tracé est couru (une même route peut être
 # courue plusieurs fois, ex. SS5 et SS9).
 
+# Traces GPX (contenu rally-maps, gitignoré, non redistribué) attendues localement :
+#   • Rallye_du_Chablais_2026.gpx  (multi-spéciales, à la racine de ce dossier)
+#   • ss5-9-evionnaz-vernayaz/stage.gpx  (spéciale fournie séparément)
+
+[[stages]]
+id = "ss1-leysin"
+ss = [1]
+
+[[stages]]
+id = "ss2-6-panex"
+ss = [2, 6]
+
+[[stages]]
+id = "ss3-7-col-de-la-croix"
+ss = [3, 7]
+
+[[stages]]
+id = "ss4-8-tour-d-ai"
+ss = [4, 8]
+
 [[stages]]
 id = "ss5-9-evionnaz-vernayaz"
 ss = [5, 9]
-day = 1
-note = "Plaine du Rhône, tarmac + portion terre."
+note = "Plaine du Rhône. GPX propre (stage.gpx)."
 
 [[stages]]
-id = "ss-demo-plaine-evionnaz"
-ss = [1]
-day = 1
-note = "Spéciale DÉMO courte (prefixe de la plaine) — montre l'héritage des défauts + le build multi-spéciales. À remplacer par vos vraies SS."
+id = "ss10-13-collombey-muraz"
+ss = [10, 13]
+
+[[stages]]
+id = "ss11-14-les-rives"
+ss = [11, 14]
+
+[[stages]]
+id = "ss12-15-portes-du-soleil"
+ss = [12, 15]

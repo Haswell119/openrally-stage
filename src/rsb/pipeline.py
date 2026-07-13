@@ -43,7 +43,7 @@ def build_stage(
     # Source du tracé : GPX (trace réelle) OU waypoints (routage OSM).
     gpx_lonlat = None
     if cfg.gpx is not None:
-        gpx_lonlat, _ele = load_gpx_track(cfg.gpx)
+        gpx_lonlat, _ele = load_gpx_track(cfg.gpx, cfg.gpx_track)
         bbox_wgs84 = bbox_from_points(
             gpx_lonlat[:, 1].tolist(), gpx_lonlat[:, 0].tolist(), cfg.bbox_margin_m
         ).as_tuple()

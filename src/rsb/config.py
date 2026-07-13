@@ -158,6 +158,10 @@ class StageConfig(BaseModel):
         default=None,
         description="Chemin d'un GPX (tracé réel) — source alternative aux waypoints.",
     )
+    gpx_track: str | None = Field(
+        default=None,
+        description="Track à sélectionner dans un GPX multi-spéciales (nom ou index).",
+    )
     waypoints: list[Waypoint] = Field(default_factory=list)
     default_surface: SurfaceKind = Field(default=SurfaceKind.TARMAC)
     surface_overrides: list[SurfaceSegment] = Field(default_factory=list)
