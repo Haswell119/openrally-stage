@@ -42,3 +42,6 @@ secrets/
 Thumbs.db
 .idea/
 .vscode/
+
+# Scratch recherche (ne pas committer)
+.research_briefs.json
