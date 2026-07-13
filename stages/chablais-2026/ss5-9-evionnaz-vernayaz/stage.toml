@@ -1,13 +1,10 @@
 # =============================================================================
 # Rallye du Chablais 2026 — SS5/9 « Evionnaz–Vernayaz »
-# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate (~445–485 m).
+# Plaine du Rhône, Valais (VS), Suisse. Spéciale quasi plate (~445–485 m), ~5,38 km.
 #
-# Bornes DÉPART/ARRIVÉE = coordonnées RÉELLES fournies par l'utilisateur
-# (converties depuis DMS). Le tracé est routé DIRECTEMENT sur le réseau OSM
-# entre ces deux points (pas de via forcé).
-#
-# ⚠️  Si le tracé routé dévie de la vraie spéciale, ajoutez des `via` le long de
-#     la route empruntée (usage HUMAIN du roadbook — jamais de scraping).
+# Waypoints = points de passage RÉELS fournis par l'utilisateur (roadbook), dans
+# l'ordre, convertis depuis DMS. Départ et arrivée sont les bornes exactes ; les
+# `via` calent le tracé sur le vrai itinéraire (chicanes + boucle de fin).
 # =============================================================================
 
 name = "chablais-2026-ss5-9-evionnaz-vernayaz"
@@ -15,11 +12,9 @@ title = "Rallye du Chablais 2026 — SS5/9 Evionnaz–Vernayaz"
 description = "Recréation de la spéciale Evionnaz–Vernayaz (plaine du Rhône, Valais). Usage simulation personnel."
 direction = "Evionnaz → Vernayaz"
 
-# Surface par défaut du parcours ; les segments « terre » ci-dessous surchargent.
 default_surface = "tarmac"
 
-# bbox non fournie explicitement → dérivée des waypoints + cette marge (m).
-# (clé de niveau racine : doit précéder toute table [..] en TOML)
+# marge autour des waypoints pour la bbox MNT/OSM
 bbox_margin_m = 400.0
 
 [crs]
@@ -27,36 +22,103 @@ geographic = "EPSG:4326"   # waypoints en WGS84 (lat/lon)
 work = "EPSG:2056"         # CRS de travail métrique (CH1903+/LV95)
 
 [route]
-default_width_m = 6.0      # largeur de route par défaut (m) — à affiner
-resample_step_m = 2.0      # pas de rééchantillonnage du tracé (m)
-network_filter = "permissive"  # inclut track/unclassified/service (routes mineures)
+default_width_m = 6.0
+resample_step_m = 2.0
+network_filter = "permissive"  # inclut track/unclassified/service
 simplify = true
 
 [camber]
-cross_section_width_m = 12.0  # largeur des coupes perpendiculaires (dévers)
+cross_section_width_m = 12.0
 n_samples = 21
 
-# --- Waypoints : bornes RÉELLES (DMS → décimal) -----------------------------
-# Départ : 46°10'24.2955"N 7°1'17.7772"E
+# --- Waypoints (ordre du roadbook) ------------------------------------------
 [[waypoints]]
 role = "start"
 name = "Départ Evionnaz"
 lat = 46.173415
 lon = 7.021605
 
-# Arrivée : 46°8'37.8039"N 7°2'15.7129"E
+[[waypoints]]
+role = "via"
+name = "1ère chicane"
+lat = 46.168166
+lon = 7.021905
+
+[[waypoints]]
+role = "via"
+name = "avant croisement"
+lat = 46.158086
+lon = 7.028412
+
+[[waypoints]]
+role = "via"
+lat = 46.158127
+lon = 7.028879
+
+[[waypoints]]
+role = "via"
+lat = 46.158748
+lon = 7.029083
+
+[[waypoints]]
+role = "via"
+lat = 46.158261
+lon = 7.030156
+
+[[waypoints]]
+role = "via"
+lat = 46.157302
+lon = 7.030644
+
+[[waypoints]]
+role = "via"
+lat = 46.157503
+lon = 7.031980
+
+[[waypoints]]
+role = "via"
+name = "chicane"
+lat = 46.154805
+lon = 7.032071
+
+[[waypoints]]
+role = "via"
+lat = 46.148469
+lon = 7.033530
+
+[[waypoints]]
+role = "via"
+lat = 46.144715
+lon = 7.036352
+
+[[waypoints]]
+role = "via"
+lat = 46.144968
+lon = 7.037215
+
+[[waypoints]]
+role = "via"
+lat = 46.145236
+lon = 7.038637
+
+[[waypoints]]
+role = "via"
+name = "chicane"
+lat = 46.142976
+lon = 7.043486
+
+[[waypoints]]
+role = "via"
+lat = 46.142805
+lon = 7.042547
+
+[[waypoints]]
+role = "via"
+lat = 46.144005
+lon = 7.037376
+
 [[waypoints]]
 role = "end"
 name = "Arrivée Vernayaz"
 lat = 46.143834
 lon = 7.037698
-
-# --- Segments de surface (optionnel) ----------------------------------------
-# Aucun segment « terre » défini pour l'instant (spéciale considérée tarmac).
-# Pour marquer une portion terre, décommentez et ajustez les distances (m depuis
-# le départ) d'après votre roadbook :
-# [[surface_overrides]]
-# kind = "gravel"
-# start_m = 0.0
-# end_m = 0.0
-# note = "Portion terre — distances à renseigner depuis le roadbook."
