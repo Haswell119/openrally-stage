@@ -26,6 +26,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import cKDTree
 
+from rsb.config import SurfaceKind
 from rsb.geo.surface import surface_runs
 from rsb.ir.types import Barriers, Centerline, StageBundle, TerrainMesh
 from rsb.providers.dem import DEMRaster
@@ -55,11 +56,18 @@ def dem_corridor_mesh(
     """
     centerline_xy = np.asarray(centerline_xy, dtype=np.float64)
     stride = max(1, int(round(target_res / dem.res[0])))
-    X, Y, Z = dem.xyz_grid()
-    Xc = X[::stride, ::stride]
-    Yc = Y[::stride, ::stride]
-    Zc = Z[::stride, ::stride].astype(np.float64)
-    h, w = Xc.shape
+    # décimation directe (sans matérialiser la grille pleine résolution)
+    rows = np.arange(0, dem.height, stride)
+    cols = np.arange(0, dem.width, stride)
+    Zc = dem.data[np.ix_(rows, cols)].astype(np.float64)
+    if dem.nodata is not None:
+        Zc[Zc == dem.nodata] = np.nan
+    t = dem.transform
+    cc = (cols + 0.5)[None, :]
+    rr = (rows + 0.5)[:, None]
+    Xc = t.a * cc + t.b * rr + t.c  # broadcast (1,w)+(h,1) → (h,w)
+    Yc = t.d * cc + t.e * rr + t.f
+    h, w = Zc.shape
 
     pts = np.column_stack([Xc.ravel(), Yc.ravel()])
     dist, _ = cKDTree(centerline_xy).query(pts)
@@ -224,3 +232,58 @@ def write_bundle(bundle: StageBundle, out_dir: str | Path) -> dict[str, str]:
     }
     _dump("bundle.json", manifest)
     return written
+
+
+# ---------------------------------------------------------------- load
+def _barriers_from_geojson(gj: dict[str, Any]) -> Barriers:
+    feats = {f["properties"]["side"]: f for f in gj["features"]}
+    crs = gj.get("properties", {}).get("crs", "EPSG:2056")
+
+    def _xy_z(feature: dict[str, Any]) -> tuple[FloatArray, FloatArray | None]:
+        coords = np.asarray(feature["geometry"]["coordinates"], dtype=np.float64)
+        xy = coords[:, :2]
+        z = coords[:, 2] if coords.shape[1] >= 3 else None
+        return xy, z
+
+    lxy, lz = _xy_z(feats["left"])
+    rxy, rz = _xy_z(feats["right"])
+    return Barriers(crs=crs, left_xy=lxy, right_xy=rxy, left_z=lz, right_z=rz)
+
+
+def load_bundle(in_dir: str | Path) -> StageBundle:
+    """Recharge une stage bundle depuis le disque (pour re-preview autonome).
+
+    Le mesh de terrain n'est pas rechargé (inutile à la preview).
+    """
+    d = Path(in_dir)
+    manifest = json.loads((d / "bundle.json").read_text(encoding="utf-8"))
+    gj = json.loads((d / "centerline.geojson").read_text(encoding="utf-8"))
+    coords = np.asarray(gj["geometry"]["coordinates"], dtype=np.float64)
+    props = gj["properties"]
+    cl = Centerline(
+        crs=props["crs"],
+        xy=coords[:, :2],
+        distance_m=np.asarray(props["distance_m"], dtype=np.float64),
+        heading_rad=np.asarray(props["heading_rad"], dtype=np.float64),
+        z=coords[:, 2] if coords.shape[1] >= 3 else None,
+    )
+    if "camber_rad" in props:
+        cl.camber_rad = np.asarray(props["camber_rad"], dtype=np.float64)
+    if "width_m" in props:
+        cl.width_m = np.asarray(props["width_m"], dtype=np.float64)
+    if "surface" in props:
+        cl.surface = [SurfaceKind(s) for s in props["surface"]]
+
+    barriers = None
+    bpath = d / "barriers.geojson"
+    if bpath.exists():
+        barriers = _barriers_from_geojson(json.loads(bpath.read_text(encoding="utf-8")))
+
+    return StageBundle(
+        name=manifest["name"],
+        crs=manifest["crs"],
+        centerline=cl,
+        barriers=barriers,
+        terrain=None,
+        metadata=manifest.get("metadata", {}),
+    )
