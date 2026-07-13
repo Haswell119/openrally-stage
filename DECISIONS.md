@@ -38,6 +38,44 @@ toucher** au reste du pipeline (drape, camber, bundle ne connaissent que l'ABC).
 
 ---
 
+## 2026-07-13 — T3 : routage WGS84 puis projection ; nearest_node maison
+
+**Décision.** La centerline route sur le graphe OSM **non projeté** (osmnx 2.x,
+`graph_from_bbox(bbox=(W,S,E,N))`, filtre `custom_filter` permissif), suit la
+géométrie réelle des arêtes, **puis** projette la polyligne en EPSG:2056 avant le
+rééchantillonnage. Le snapping des waypoints utilise un `nearest_node` maison
+(équirectangulaire).
+
+**Justification.** osmnx calcule `length` en mètres même sur graphe géographique,
+donc le routage est correct sans projeter tout le graphe. `nearest_node` maison
+évite la dépendance lourde **scikit-learn** (BallTree) exigée par
+`osmnx.nearest_nodes` sur graphe non projeté. Cœur géométrique pur (resample,
+caps, stitching) testé sans réseau.
+
+## 2026-07-13 — T5 : convention de dévers + lissage médian
+
+**Décision.** `camber_rad` **positif = la route penche à droite** (bord droit
+plus bas), ajusté sur la portion centrale (largeur route). La largeur est
+détectée depuis le MNT **seulement** en cas de rupture bilatérale nette
+(plateforme/digue), sinon retour à la largeur config. Un filtre **médian** le
+long du tracé (`camber.smooth_window_m`) atténue les pics de bruit du MNT.
+
+**Justification.** Le MNT bare-earth ne révèle la largeur de route que sur les
+talus ; ailleurs la config est plus honnête qu'une détection hasardeuse. Le
+médian est robuste aux pics ponctuels (ponts, bords de talus) sans écraser les
+tendances réelles.
+
+## 2026-07-13 — T8/T9 : formats IR + preview AVANT KN5
+
+**Décision.** La bundle sérialise en **GeoJSON** (EPSG:2056) + **OBJ** (mesh
+corridor) + un **CSV localisé** aligné sur la convention d'axes de
+`io_import_accsv` (colonnes AC X, Z, Y ; origine locale dans le manifeste). La
+**preview 3D matplotlib** est produite systématiquement.
+
+**Justification.** GeoJSON/OBJ sont universels et inspectables. Le CSV localisé
+rend le passage à Blender immédiat. La preview permet de **valider avant**
+d'investir dans le maillon manuel coûteux (KN5).
+
 ## 2026-07-13 — IR : stage bundle agnostique de l'éditeur (inversion de dépendance)
 
 **Décision.** Le pipeline produit une **représentation intermédiaire (IR)** —
