@@ -43,6 +43,39 @@ dévers sont faux, corrigez `stage.toml` (waypoints / surfaces) et relancez
 
 ---
 
+## 0bis. Export AC **direct, SANS Blender** (recommandé) — dossier `ac/`
+
+`rsb build` génère aussi un sous-dossier **`ac/`** avec une piste déjà modélisée,
+prête pour **ksEditor** (l'outil Kunos) :
+
+| Fichier | Contenu |
+|---|---|
+| `track.fbx` | Piste 3D nommée AC : `1ROAD` (route roulable), `1KERB` (bordures/trottoirs dans les virages), `1WALL` (barrières placées **d'après le MNT** là où le terrain plonge), `1GRASS` (terrain) + objets `AC_AB_START_L/R`, `AC_AB_FINISH_L/R`, `AC_TIME_0_L/R`, `AC_PIT_0`. **Axe Y-up, mètres, localisé.** |
+| `track.obj` | Même géométrie en OBJ (secours / 3DSimED). |
+| `surfaces.ini` | Types de surface (ROAD/GRASS/KERB). |
+| `ui_track.json` | Métadonnées piste (`content/tracks/<piste>/ui/`). |
+| `ac_objects.json` | Origine LV95 + positions des objets AC + stats meshes. |
+| `ac_preview.png` | Contrôle visuel des couches (route/bordures/barrières). |
+
+**Flux ksEditor (pas de Blender) :**
+1. Ouvrez **ksEditor** (SDK Kunos) → **Import FBX** → `ac/track.fbx`.
+2. **Échelle** : si la piste est 100× trop grande, réimportez à **0.01** (le FBX
+   est écrit en mètres, mais ksEditor applique parfois le cm).
+3. Assignez les **matériaux/shaders** aux objets `1ROAD`/`1KERB`/`1WALL`/`1GRASS`
+   (textures tarmac/gravier/herbe), placez le `surfaces.ini`.
+4. **File > Save** (persistence `.fbx.ini`) puis **export `<piste>.kn5`**.
+5. Copiez le tout dans `content/tracks/<piste>/` avec `ui/ui_track.json`.
+6. **AI line** + **pacenotes** : voir §5 et §6 (toujours nécessaires, en jeu).
+
+> ⚠️ Ne pouvant pas tester ksEditor ici, vérifiez au 1er import : l'**échelle**
+> (0.01 au besoin) et l'**orientation** (si la piste est retournée, c'est l'axe —
+> dites-le, on ajuste `to_ac_xyz`). Le reste (noms d'objets, barrières, bordures)
+> est déjà en place.
+
+Les sections §1–§4 ci-dessous décrivent la variante **Blender** (alternative).
+
+---
+
 ## 1. Prérequis (à installer une fois)
 
 - **Blender** (récent).

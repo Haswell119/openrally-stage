@@ -30,7 +30,13 @@ def _cmd_build(args: argparse.Namespace) -> int:
     out_dir = Path(args.out) if args.out else Path("outputs") / cfg.name
 
     print(f"▶ Construction de la spéciale « {cfg.name} »")
-    print(f"  bbox WGS84 : {cfg.effective_bbox().as_tuple()}")
+    if cfg.gpx is not None:
+        print(
+            f"  source : GPX {Path(cfg.gpx).name}"
+            + (f" (track {cfg.gpx_track})" if cfg.gpx_track else "")
+        )
+    else:
+        print(f"  bbox WGS84 : {cfg.effective_bbox().as_tuple()}")
     print(f"  MNT : swissALTI3D {args.dem_res} m — CRS {cfg.crs.work}")
 
     bundle = build_stage(

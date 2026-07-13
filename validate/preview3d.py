@@ -13,7 +13,7 @@ dépendance à Assetto Corsa : on valide l'IR (bundle) telle quelle.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 
@@ -27,7 +27,10 @@ from rsb.config import SurfaceKind  # noqa: E402
 from rsb.ir.types import StageBundle  # noqa: E402
 
 if TYPE_CHECKING:
+    from rsb.export.ac_track import AcTrack
     from rsb.rally import RallyReport
+
+_AC_COLORS = {"1ROAD": "#555555", "1KERB": "#d62728", "1WALL": "#1f77b4", "1GRASS": "#8fbf8f"}
 
 _SURFACE_COLORS = {
     SurfaceKind.TARMAC: "#444444",
@@ -356,6 +359,78 @@ def build_rally_overview_figure(report: RallyReport) -> Figure:
 
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     return fig
+
+
+def build_ac_layers_figure(track: AcTrack) -> Figure:
+    """Contrôle visuel des couches AC : plan (placement route/bordures/barrières) +
+    coupe 3D zoomée (route + barrières en relief)."""
+    fig = plt.figure(figsize=(16, 8))
+    fig.suptitle(f"Couches AC — {track.name}", fontsize=13)
+    ax = fig.add_subplot(1, 2, 1)
+    ax3d = fig.add_subplot(1, 2, 2, projection="3d")
+
+    def by_name(n: str) -> Any:
+        return next((m for m in track.meshes if m.name == n), None)
+
+    # --- plan : placement de chaque couche ---
+    for m in track.meshes:
+        if m.name == "1GRASS":
+            continue  # trop dense en plan
+        v = m.vertices
+        ax.scatter(v[:, 0], v[:, 1], s=2, color=_AC_COLORS.get(m.name, "#333"), label=m.name)
+    for o in track.objects:
+        ax.plot(o.pos[0], o.pos[1], "kx", markersize=6)
+        ax.annotate(
+            o.name, (o.pos[0], o.pos[1]), fontsize=6, xytext=(3, 3), textcoords="offset points"
+        )
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_title("Plan — route, bordures (rouge), barrières (bleu), objets AC")
+    ax.set_xlabel("E local (m)")
+    ax.set_ylabel("N local (m)")
+    ax.legend(loc="best", fontsize=8, markerscale=3)
+    ax.grid(True, alpha=0.3)
+
+    # --- 3D : fenêtre zoomée (là où il y a des barrières, sinon le début) ---
+    wall = by_name("1WALL")
+    road = by_name("1ROAD")
+    if road is not None:
+        focus = wall.vertices if wall is not None else road.vertices
+        cx, cy = float(focus[:, 0].mean()), float(focus[:, 1].mean())
+        half = 120.0
+        for m in track.meshes:
+            v = m.vertices
+            sel = (np.abs(v[:, 0] - cx) < half) & (np.abs(v[:, 1] - cy) < half)
+            if sel.sum() < 3:
+                continue
+            ax3d.plot_trisurf(
+                v[:, 0],
+                v[:, 1],
+                v[:, 2],
+                triangles=m.faces,
+                color=_AC_COLORS.get(m.name, "#888"),
+                alpha=0.85 if m.name != "1GRASS" else 0.3,
+                linewidth=0,
+                shade=True,
+            )
+        ax3d.set_xlim(cx - half, cx + half)
+        ax3d.set_ylim(cy - half, cy + half)
+    ax3d.set_title("Coupe 3D (~240 m) — route + barrières en relief")
+    ax3d.set_xlabel("E (m)")
+    ax3d.set_ylabel("N (m)")
+    ax3d.set_zlabel("Z (m)")
+
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    return fig
+
+
+def render_ac_layers(track: AcTrack, out_path: str | Path, *, dpi: int = 130) -> Path:
+    """Rend le contrôle visuel des couches AC en PNG."""
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig = build_ac_layers_figure(track)
+    fig.savefig(out, dpi=dpi)
+    plt.close(fig)
+    return out
 
 
 def render_rally_overview(report: RallyReport, out_path: str | Path, *, dpi: int = 130) -> Path:
