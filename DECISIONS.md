@@ -38,6 +38,22 @@ toucher** au reste du pipeline (drape, camber, bundle ne connaissent que l'ABC).
 
 ---
 
+## 2026-07-13 — Niveau RALLYE : orchestration multi-spéciales
+
+**Décision.** Un rallye = `stages/<rallye>/rally.toml` + un sous-dossier
+`stage.toml` par spéciale. `rally.toml` porte des **valeurs par défaut**
+(deep-merge sous chaque `stage.toml`, le stage gagne) et la liste des SS.
+`build_rally` construit toutes les spéciales en **partageant le cache** MNT/OSM,
+**saute** celles déjà construites (idempotence par `bundle.json`), est
+**résilient** (une SS en échec n'interrompt pas le lot ; statut par spéciale), et
+produit `rally.json` + une carte d'ensemble. CLI : `build-rally`, `list`,
+`new-stage`.
+
+**Justification.** Un rallye réel compte 10–16 spéciales (parfois le même tracé
+couru deux fois, ex. SS5/SS9). Sans orchestration, l'utilisateur répète la config
+et perd tout le lot au premier échec. Les défauts hérités (DRY) et la résilience
+rendent l'outil utilisable pour un **rallye entier**, pas seulement une spéciale.
+
 ## 2026-07-13 — T3 : routage WGS84 puis projection ; nearest_node maison
 
 **Décision.** La centerline route sur le graphe OSM **non projeté** (osmnx 2.x,

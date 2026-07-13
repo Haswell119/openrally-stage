@@ -129,7 +129,7 @@ def test_build_centerline_avec_graphe_injecte() -> None:
 def test_build_centerline_reel_evionnaz() -> None:
     from rsb.config import load_stage
 
-    cfg = load_stage("stages/chablais-2026-ss5-9-evionnaz-vernayaz/stage.toml")
+    cfg = load_stage("stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml")
     cl = build_centerline(cfg)
     assert cl.length_m > 2000.0  # spéciale de plusieurs km
     assert cl.crs == "EPSG:2056"

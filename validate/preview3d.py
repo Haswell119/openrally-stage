@@ -13,6 +13,7 @@ dépendance à Assetto Corsa : on valide l'IR (bundle) telle quelle.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import matplotlib
 
@@ -24,6 +25,9 @@ from matplotlib.figure import Figure  # noqa: E402
 
 from rsb.config import SurfaceKind  # noqa: E402
 from rsb.ir.types import StageBundle  # noqa: E402
+
+if TYPE_CHECKING:
+    from rsb.rally import RallyReport
 
 _SURFACE_COLORS = {
     SurfaceKind.TARMAC: "#444444",
@@ -114,6 +118,76 @@ def render_preview(bundle: StageBundle, out_path: str | Path, *, dpi: int = 130)
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig = build_preview_figure(bundle)
+    fig.savefig(out, dpi=dpi)
+    plt.close(fig)
+    return out
+
+
+def build_rally_overview_figure(report: RallyReport) -> Figure:
+    """Carte d'ensemble d'un rallye : toutes les spéciales construites en un plan.
+
+    Positionne les spéciales dans leurs vraies coordonnées relatives (LV95) et
+    récapitule longueurs et surfaces.
+    """
+    ok = [r for r in report.ok if r.bundle is not None]
+    fig = plt.figure(figsize=(14, 8))
+    fig.suptitle(f"{report.title} — aperçu du rallye", fontsize=14)
+    ax = fig.add_subplot(1, 2, 1)
+    ax_txt = fig.add_subplot(1, 2, 2)
+    ax_txt.axis("off")
+
+    # origine globale commune (min E/N sur toutes les spéciales) pour un plan lisible
+    all_xy = [r.bundle.centerline.xy for r in ok if r.bundle is not None]
+    if all_xy:
+        e0 = min(float(xy[:, 0].min()) for xy in all_xy)
+        n0 = min(float(xy[:, 1].min()) for xy in all_xy)
+    else:
+        e0 = n0 = 0.0
+
+    cmap = plt.get_cmap("tab10")
+    lines = ["Spéciales construites :", ""]
+    for i, r in enumerate(ok):
+        assert r.bundle is not None
+        xy = r.bundle.centerline.xy
+        color = cmap(i % 10)
+        ax.plot(xy[:, 0] - e0, xy[:, 1] - n0, color=color, lw=1.6)
+        ax.plot(xy[0, 0] - e0, xy[0, 1] - n0, "o", color=color, markersize=5)
+        ss = "/".join(f"SS{n}" for n in r.ss) if r.ss else "—"
+        ax.annotate(
+            r.id,
+            (xy[0, 0] - e0, xy[0, 1] - n0),
+            fontsize=7,
+            color=color,
+            xytext=(4, 4),
+            textcoords="offset points",
+        )
+        lines.append(f"• {ss:8}  {r.id}")
+        lines.append(f"          {r.length_m:.0f} m — {r.n_stations} stations")
+
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_title("Carte des spéciales (coordonnées LV95 locales)")
+    ax.set_xlabel("E local (m)")
+    ax.set_ylabel("N local (m)")
+    ax.grid(True, alpha=0.3)
+
+    lines.append("")
+    lines.append(
+        f"Total construit : {report.total_length_m / 1000:.1f} km sur {len(ok)} spéciale(s)."
+    )
+    if report.failed:
+        lines.append("")
+        lines.append(f"⚠ {len(report.failed)} en échec : " + ", ".join(r.id for r in report.failed))
+    ax_txt.text(0.0, 1.0, "\n".join(lines), va="top", ha="left", fontsize=9, family="monospace")
+
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    return fig
+
+
+def render_rally_overview(report: RallyReport, out_path: str | Path, *, dpi: int = 130) -> Path:
+    """Rend l'aperçu du rallye et l'écrit en PNG. Retourne le chemin."""
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig = build_rally_overview_figure(report)
     fig.savefig(out, dpi=dpi)
     plt.close(fig)
     return out

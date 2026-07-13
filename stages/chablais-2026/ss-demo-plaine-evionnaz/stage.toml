@@ -1,0 +1,25 @@
+# Spéciale DÉMO (courte) — Rallye du Chablais 2026.
+# Ce stage.toml est VOLONTAIREMENT MINIMAL : il n'indique ni CRS, ni route, ni
+# camber → ces valeurs sont HÉRITÉES de stages/chablais-2026/rally.toml [defaults].
+# Sert à montrer (a) l'héritage des défauts du rallye, (b) le build multi-spéciales.
+#
+# ⚠️  Waypoints SEED (approximatifs) — remplacez par vos vraies SS depuis le roadbook.
+
+name = "chablais-2026-ss-demo-plaine-evionnaz"
+title = "Rallye du Chablais 2026 — DÉMO plaine (Evionnaz)"
+description = "Spéciale démo courte dans la plaine du Rhône. Usage simulation personnel."
+direction = "Evionnaz → plaine"
+default_surface = "tarmac"
+bbox_margin_m = 400.0
+
+[[waypoints]]
+role = "start"
+name = "Evionnaz"
+lat = 46.1830          # SEED
+lon = 7.0210
+
+[[waypoints]]
+role = "end"
+name = "Plaine du Rhône"
+lat = 46.1680          # SEED
+lon = 7.0280

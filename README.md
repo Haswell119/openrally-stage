@@ -60,24 +60,55 @@ uv pip install -e ".[dev]"
 # Vérifications
 ruff check . && mypy src/rsb && pytest
 
-# Construire la première spéciale (Evionnaz–Vernayaz, Rallye du Chablais)
+# Construire UNE spéciale (Evionnaz–Vernayaz, Rallye du Chablais)
 # NB : télécharge des tuiles MNT + le réseau OSM (accès réseau requis).
-uv run rsb build stages/chablais-2026-ss5-9-evionnaz-vernayaz/stage.toml
+uv run rsb build stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml
 
-# Ouvrir la preview 3D (sans télécharger, si le bundle existe déjà)
-uv run rsb preview outputs/chablais-2026-ss5-9-evionnaz-vernayaz/
+# Construire TOUT un rallye (toutes les spéciales) + carte d'ensemble
+uv run rsb build-rally stages/chablais-2026
+
+# Lister les spéciales, ajouter une spéciale (template à affiner)
+uv run rsb list stages/chablais-2026
+uv run rsb new-stage stages/chablais-2026 ss3-mon-tracé
+
+# Ré-ouvrir une preview 3D depuis un bundle existant (sans réseau)
+uv run rsb preview outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
 ```
 
-Les sorties (bundle, mesh, preview) vont dans `outputs/` et les tuiles
-téléchargées dans `data/` — **les deux sont ignorés par git**.
+Les sorties (bundles, mesh, previews, carte du rallye) vont dans `outputs/` et
+les tuiles téléchargées dans `data/` — **les deux sont ignorés par git**.
+
+### Un rallye entier
+
+Un **rallye** = un dossier `stages/<rallye>/` avec un `rally.toml` (métadonnées +
+**valeurs par défaut** héritées par chaque spéciale) et un sous-dossier
+`stage.toml` par spéciale :
+
+```
+stages/chablais-2026/
+├── rally.toml                       # défauts (CRS, provider, largeur…) + liste des SS
+├── ss5-9-evionnaz-vernayaz/stage.toml
+└── ss-demo-plaine-evionnaz/stage.toml   # minimal : hérite des défauts du rallye
+```
+
+`rsb build-rally` construit **toutes** les spéciales en **partageant le cache**
+MNT/OSM, **saute** celles déjà construites (sauf `--force`), est **résilient**
+(l'échec d'une spéciale n'interrompt pas les autres), et produit un
+`rally.json` + une carte d'ensemble `rally_overview.png`.
 
 ## Architecture
 
 ```
 rally-stage-builder/
-├── stages/                       # 1 dossier = 1 spéciale (config versionnée)
-│   └── chablais-2026-ss5-9-evionnaz-vernayaz/stage.toml
+├── stages/
+│   └── chablais-2026/            # 1 dossier = 1 RALLYE
+│       ├── rally.toml            # défauts hérités + liste des spéciales (SS)
+│       └── ss5-9-evionnaz-vernayaz/stage.toml   # 1 sous-dossier = 1 spéciale
 ├── src/rsb/
+│   ├── config.py                 # modèle stage.toml (pydantic)
+│   ├── rally.py                  # modèle rally.toml + build_rally (multi-spéciales)
+│   ├── pipeline.py               # build_stage : orchestration T2→T8
+│   ├── cli.py                    # rsb build / build-rally / list / new-stage / preview
 │   ├── providers/dem.py          # DEMProvider (ABC) + SwissAlti3DProvider
 │   ├── fetch/stac_swisstopo.py   # STAC → tuiles GeoTIFF sur bbox
 │   ├── geo/centerline.py         # osmnx : waypoints → tracé routé, rééchantillonné
@@ -87,7 +118,7 @@ rally-stage-builder/
 │   ├── geo/barriers.py           # offset bord de route + hook obstacles
 │   ├── ir/bundle.py              # écrit la stage bundle (geojson + mesh terrain)
 │   └── export/                   # adaptateurs (Blender, RTB) — stubs
-├── validate/preview3d.py         # visu matplotlib 3D (profil + dévers) AVANT AC
+├── validate/preview3d.py         # visu matplotlib 3D (profil + dévers) + carte rallye
 └── tests/
 ```
 

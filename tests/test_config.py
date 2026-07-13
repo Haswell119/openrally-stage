@@ -13,7 +13,7 @@ from rsb.config import (
     load_stage,
 )
 
-SEED = Path("stages/chablais-2026-ss5-9-evionnaz-vernayaz/stage.toml")
+SEED = Path("stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml")
 
 
 def _base_waypoints() -> list[dict[str, object]]:

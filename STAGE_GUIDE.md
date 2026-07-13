@@ -13,6 +13,14 @@ produite par `rsb` en une piste Assetto Corsa jouable avec pacenotes.
 > obligatoire) et **Source : swisstopo** (swissALTI3D). Ne redistribuez **aucun**
 > contenu issu de rally-maps / roadbooks.
 
+### Rallye entier (plusieurs spéciales)
+
+`rsb build-rally stages/<rallye>` construit **toutes** les spéciales d'un coup
+(`outputs/<rallye>/<ss>/…`) + une carte d'ensemble. Le maillon manuel ci-dessous
+se répète **par spéciale** : chaque SS produit son propre KN5 (piste
+point-à-point) et ses pacenotes. Pour une même route courue deux fois (ex.
+SS5/SS9), une seule piste KN5 suffit — elle est jouée deux fois dans le rallye.
+
 ---
 
 ## 0. Ce que contient la bundle
