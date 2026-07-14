@@ -43,16 +43,18 @@ dévers sont faux, corrigez `stage.toml` (waypoints / surfaces) et relancez
 
 ---
 
-## 0bis. Export AC **direct, SANS Blender** (recommandé) — dossier `ac/`
+## 0bis. Dossier `ac/` **prêt à jouer** — `.kn5` compilé, SANS Blender ni ksEditor
 
-`rsb build` génère un **dossier piste au format AC**, prêt à copier dans
-`content/tracks/` :
+`rsb build` génère un **dossier piste au format AC**, avec le **`.kn5` déjà
+compilé**, prêt à copier dans `content/tracks/` :
 
 ```
 outputs/<rallye>/<ss>/ac/<track_id>/
-├── <track_id>.fbx     1ROAD (route) + 1KERB (bordures) + 1WALL (barrières d'après
-│                      le MNT) + 1GRASS (terrain) + objets AC_AB_START/FINISH/TIME/PIT.
-│                      Axe Y-up, mètres, localisé.
+├── <track_id>.kn5     modèle 3D COMPILÉ — 1ROAD (route) + 1KERB (bordures) +
+│                      1WALL (barrières d'après le MNT) + 1GRASS (terrain) +
+│                      matériaux (ksPerPixel, textures unies) + objets AC
+│                      (AC_START_0, AC_PIT_0, AC_AB_START/FINISH_L/R, AC_TIME_0_L/R).
+├── <track_id>.fbx     même géométrie (pour retoucher les shaders dans ksEditor)
 ├── track.obj          même géométrie (secours / 3DSimED)
 ├── models.ini         référence le <track_id>.kn5
 ├── data/
@@ -65,22 +67,24 @@ outputs/<rallye>/<ss>/ac/<track_id>/
     └── outline.png    355×200
 ```
 
-**Flux ksEditor (pas de Blender) :**
-1. Ouvrez **ksEditor** (SDK Kunos) → **Import FBX** → `ac/<track_id>/<track_id>.fbx`.
-2. **Échelle** : si la piste est 100× trop grande, réimportez à **0.01** (le FBX
-   est en mètres, mais ksEditor applique parfois le cm).
-3. Assignez les **matériaux/shaders** aux objets `1ROAD`/`1KERB`/`1WALL`/`1GRASS`
-   (textures tarmac/gravier/herbe).
-4. **File > Save** (persistence) puis **export `<track_id>.kn5` DANS le dossier**.
-5. Copiez `ac/<track_id>/` dans `Assetto Corsa/content/tracks/`.
-6. **AI line** + **pacenotes** : voir §5 et §6 (en jeu, toujours nécessaires).
+**Flux direct (rien à installer) :**
+1. Copiez `ac/<track_id>/` dans `Assetto Corsa/content/tracks/`.
+2. Lancez AC → choisissez la piste → **Practice** → vous roulez.
+3. **AI line** + **pacenotes** : voir §5 et §6 (en jeu, toujours nécessaires pour
+   le chrono de spéciale et le co-pilote).
 
-> ⚠️ Ne pouvant pas tester ksEditor ici, vérifiez au 1er import : l'**échelle**
-> (0.01 au besoin) et l'**orientation** (si la piste est retournée, c'est l'axe —
-> dites-le, on ajuste `to_ac_xyz`). Le reste (noms d'objets, barrières, bordures)
-> est déjà en place.
+Le `.kn5` est écrit **directement** par `rsb` (format public reverse-engineeré,
+recoupé avec deux lecteurs KN5 indépendants). Les textures sont **unies** (une
+couleur par surface : route sombre, herbe verte, bordure rouge, barrière grise).
 
-Les sections §1–§4 ci-dessous décrivent la variante **Blender** (alternative).
+> ⚠️ Le `.kn5` n'a pas pu être **testé dans AC** dans l'environnement de build.
+> Si un souci apparaît : l'**orientation du spawn** suit le sens de la spéciale
+> (si la voiture est dos à la route, tournez) ; pour un **rendu plus riche**,
+> réimportez le `<track_id>.fbx` dans **ksEditor** et assignez vos shaders
+> (échelle **0.01** si la piste est 100× trop grande), puis réexportez le `.kn5`.
+
+Les sections §1–§4 ci-dessous décrivent la variante **Blender** (alternative pour
+les shaders avancés).
 
 ---
 

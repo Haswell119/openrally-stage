@@ -7,8 +7,8 @@ Tu donnes un **tracé** (un GPX de roadbook, ou un départ + une arrivée) ; l'o
 route la spéciale sur le **vrai réseau routier** (OpenStreetMap), la drape sur un
 **modèle d'altitude haute résolution** (swissALTI3D, 0,5 m), calcule le **dévers**,
 segmente les **surfaces** (tarmac / terre), pose des **bordures** et des
-**barrières** d'après le relief, puis écrit un **dossier piste prêt pour AC** —
-il ne te reste que le passage dans **ksEditor** pour sortir le `.kn5`.
+**barrières** d'après le relief, puis écrit un **dossier piste prêt pour AC**,
+**`.kn5` compilé inclus** — tu le copies dans `content/tracks/` et tu roules.
 
 > 🇨🇭 **Aujourd'hui, l'altitude ne couvre que la Suisse** (source swissALTI3D).
 > Le reste de l'architecture est prêt pour d'autres pays, mais il faut y ajouter
@@ -19,12 +19,14 @@ il ne te reste que le passage dans **ksEditor** pour sortir le `.kn5`.
 ## Ce que tu obtiens (et ce qu'il reste à faire)
 
 À chaque build, `rsb` produit un dossier au **format piste Assetto Corsa**, prêt
-à copier dans `content/tracks/` :
+à copier dans `content/tracks/` — **avec le `.kn5` déjà compilé** (ni Blender ni
+ksEditor requis pour rouler) :
 
 ```
 outputs/<rallye>/<ss>/ac/<track_id>/
-├── <track_id>.fbx     1ROAD (route) + 1KERB (bordures) + 1WALL (barrières) + 1GRASS
-│                      (terrain). Axe Y-up, mètres, normales correctes.
+├── <track_id>.kn5     ← modèle 3D compilé, PRÊT À JOUER (route/bordures/barrières/
+│                        terrain + matériaux + objets AC). Écrit directement.
+├── <track_id>.fbx     même géométrie, si tu veux affiner les shaders dans ksEditor
 ├── models.ini         référence le .kn5
 ├── data/
 │   ├── surfaces.ini   ROAD / GRASS / KERB
@@ -34,19 +36,23 @@ outputs/<rallye>/<ss>/ac/<track_id>/
 │   ├── ui_track.json  nom, longueur, tags
 │   ├── preview.png    355×200
 │   └── outline.png    355×200
-└── README_IMPORT.txt  mode d'emploi ksEditor (sans Blender)
+└── README_IMPORT.txt  mode d'emploi
 ```
 
-| ✅ `rsb` s'en occupe | 🛠️ À toi de finir (dans les outils AC) |
+| ✅ `rsb` s'en occupe | 🛠️ À toi de finir (en jeu) |
 |---|---|
-| Tracé routé sur OSM, drapé sur le MNT | Ouvrir le FBX dans **ksEditor**, assigner les matériaux/shaders |
-| Dévers, largeur, surfaces | Exporter le **`.kn5`** |
-| Bordures + barrières d'après le relief | Enregistrer l'**AI line** en jeu (`fast_lane.ai`) |
-| Objets AC (`AC_AB_START/FINISH/TIME/PIT`) | **Pacenotes** via CSP Copilot |
+| Tracé routé sur OSM, drapé sur le MNT | Enregistrer l'**AI line** (`fast_lane.ai`, app AI) |
+| Dévers, largeur, surfaces | **Pacenotes** via CSP Copilot |
+| Bordures + barrières d'après le relief | *(optionnel)* meilleurs shaders/textures dans ksEditor |
+| **`.kn5` compilé** + matériaux + objets AC | |
 | Minimap, previews UI, `ui_track.json` | |
 
-Le dernier maillon (ksEditor → KN5 → AI line → pacenotes) est **entièrement
-documenté** dans [`STAGE_GUIDE.md`](STAGE_GUIDE.md). Aucun Blender requis.
+Copie le dossier dans `content/tracks/`, lance AC en **Practice** → tu roules.
+Le `.kn5` est écrit d'après un format public reverse-engineeré et **recoupé avec
+deux lecteurs KN5 indépendants** ; les textures sont unies (une couleur par
+surface). Pour un rendu plus riche, réimporte le `.fbx` dans ksEditor
+(facultatif). Le chrono de spéciale et les pacenotes se règlent en jeu — voir
+[`STAGE_GUIDE.md`](STAGE_GUIDE.md).
 
 ---
 
@@ -101,15 +107,15 @@ rsb build examples/evionnaz-test-stage/stage.toml
 # 2) regarde la preview 3D AVANT d'aller plus loin
 #    → outputs/evionnaz-test-stage/preview.png  (tracé + profil d'altitude + dévers)
 
-# 3) le dossier piste AC est là :
+# 3) le dossier piste AC (avec le .kn5 compilé) est là :
 #    → outputs/evionnaz-test-stage/ac/evionnaz-test-stage/
-#      ouvre le .fbx dans ksEditor (voir STAGE_GUIDE.md §0bis), exporte le .kn5,
-#      copie le dossier dans content/tracks/.
+#      copie-le dans <Assetto Corsa>/content/tracks/, lance AC → Practice → roule.
 ```
 
 Pas envie d'attendre le build ? Une version **déjà construite** de cet exemple
-est versionnée dans [`examples/evionnaz-test-stage/`](examples/evionnaz-test-stage/) :
-tu peux inspecter le FBX et les fichiers AC immédiatement.
+(avec son `.kn5`) est versionnée dans
+[`examples/evionnaz-test-stage/`](examples/evionnaz-test-stage/) : copie
+`ac/evionnaz-test-stage/` dans `content/tracks/` et roule tout de suite.
 
 > ⚠️ **Valide toujours `preview.png` d'abord.** Si le tracé, le profil d'altitude
 > ou le dévers sont faux, corrige le `stage.toml` (waypoints / surfaces) et
@@ -215,8 +221,12 @@ Les sorties vont dans `outputs/` et les tuiles/graphes téléchargés dans `data
   Copernicus…) : l'architecture le permet via `DEMProvider`
   ([`src/rsb/providers/dem.py`](src/rsb/providers/dem.py)) **sans toucher au
   reste du pipeline**, mais ce provider reste à écrire.
-- **Dernier maillon manuel.** `rsb` s'arrête au FBX + dossier AC. Le KN5, l'AI
-  line et les pacenotes se font dans ksEditor / en jeu ([`STAGE_GUIDE.md`](STAGE_GUIDE.md)).
+- **`.kn5` généré, non testé dans AC ici.** Le modèle est écrit d'après un format
+  public reverse-engineeré et recoupé avec deux lecteurs KN5 indépendants, mais il
+  n'a pas pu être ouvert dans AC dans cet environnement. Textures unies (une par
+  surface) ; pour des shaders soignés, réimporte le `.fbx` dans ksEditor.
+- **En jeu, il reste** l'**AI line** (app AI) et les **pacenotes** (CSP Copilot)
+  — voir [`STAGE_GUIDE.md`](STAGE_GUIDE.md).
 - **Recréation à usage simulation personnel.** Respecte les licences des données.
 
 ## Licences & attribution

@@ -51,10 +51,16 @@ class NamedMesh:
 
 @dataclass
 class AcObject:
-    """Objet logique AC (empty) : nom + position locale (E, N, Z)."""
+    """Objet logique AC (empty) : nom + position locale (E, N, Z).
+
+    ``heading_rad`` (cap de la route, optionnel) oriente l'objet dans le KN5 —
+    utile pour le spawn (``AC_START_0`` / ``AC_PIT_0``) afin que la voiture
+    apparaisse tournée vers l'aval de la spéciale, et non en travers.
+    """
 
     name: str
     pos: tuple[float, float, float]
+    heading_rad: float | None = None
 
 
 @dataclass
@@ -216,7 +222,11 @@ def ac_objects(cl: Centerline, road_z: FloatArray, half_width: FloatArray) -> li
     objs = gate(0, "AC_AB_START")
     objs += gate(len(cl) - 1, "AC_AB_FINISH")
     objs += gate(mid, "AC_TIME_0")
-    objs.append(AcObject("AC_PIT_0", (float(cl.xy[0, 0]), float(cl.xy[0, 1]), float(road_z[0]))))
+    # spawn : légèrement au-dessus de la route, orienté vers l'aval de la spéciale.
+    start_heading = float(cl.heading_rad[0])
+    spawn = (float(cl.xy[0, 0]), float(cl.xy[0, 1]), float(road_z[0]) + 0.20)
+    objs.append(AcObject("AC_START_0", spawn, heading_rad=start_heading))
+    objs.append(AcObject("AC_PIT_0", spawn, heading_rad=start_heading))
     return objs
 
 
@@ -255,7 +265,10 @@ def build_ac_track(
 
     # localise tout (origine soustraite)
     local_meshes = [NamedMesh(m.name, m.vertices - np.array([e0, n0, z0]), m.faces) for m in meshes]
-    local_objs = [AcObject(o.name, (o.pos[0] - e0, o.pos[1] - n0, o.pos[2] - z0)) for o in objs]
+    local_objs = [
+        AcObject(o.name, (o.pos[0] - e0, o.pos[1] - n0, o.pos[2] - z0), o.heading_rad)
+        for o in objs
+    ]
     return AcTrack(name=name, origin=origin, meshes=local_meshes, objects=local_objs)
 
 
@@ -535,20 +548,20 @@ def models_ini(track: AcTrack) -> str:
 _README = """PISTE ASSETTO CORSA — {name}
 Généré par rally-stage-builder (usage simulation personnel).
 
-Ce dossier suit la structure AC : copiez-le dans
-    <Assetto Corsa>/content/tracks/
+PRÊT À JOUER : ce dossier contient déjà le modèle compilé {name}.kn5
+(route, bordures, barrières, terrain, avec matériaux/surfaces et objets AC).
 
-IL MANQUE UNE SEULE CHOSE : le modèle 3D compilé {name}.kn5.
-Générez-le UNE fois (outil Kunos, pas de Blender) :
-  1. Ouvrez ksEditor (SDK Assetto Corsa).
-  2. Import FBX -> {name}.fbx (dans ce dossier).
-     - Si la piste est 100x trop grande, réimportez à l'échelle 0.01.
-  3. Assignez les matériaux/textures aux objets 1ROAD / 1KERB / 1WALL / 1GRASS
-     (tarmac / bordure / rail / herbe).
-  4. File > Save (persistence) puis EXPORT -> {name}.kn5 DANS CE DOSSIER.
+  1. Copiez CE dossier ({name}/) dans <Assetto Corsa>/content/tracks/
+  2. Lancez AC, choisissez la piste, mode Practice -> roulez.
 
-Ensuite, en jeu (voir STAGE_GUIDE.md) :
-  - AI line : app AI -> conduire -> fast_lane.ai (dans data/ai/).
+Le .kn5 est écrit directement (sans Blender ni ksEditor). Textures unies par
+surface (route sombre, herbe verte, bordure rouge, barrière grise) : pour un
+rendu plus riche, réimportez le {name}.fbx dans ksEditor et assignez vos
+propres shaders (facultatif). L'orientation du spawn suit le sens de la
+spéciale ; si la voiture apparaît dos à la route, tournez simplement.
+
+Pour un chrono de spéciale + pacenotes (voir STAGE_GUIDE.md) :
+  - AI line : app AI en jeu -> conduire -> fast_lane.ai (dans data/ai/).
   - Pacenotes : CSP Copilot (auto depuis l'AI line).
 
 Attribution obligatoire : (c) OpenStreetMap contributors (ODbL) ;
@@ -572,6 +585,9 @@ def write_ac_folder(
     (root / "data" / "ai").mkdir(parents=True, exist_ok=True)
     (root / "ui").mkdir(parents=True, exist_ok=True)
 
+    from rsb.export.kn5 import write_kn5
+
+    (root / f"{track.name}.kn5").write_bytes(write_kn5(track))
     (root / f"{track.name}.fbx").write_text(write_fbx(track), encoding="utf-8")
     (root / "track.obj").write_text(write_obj(track), encoding="utf-8")
     (root / "models.ini").write_text(models_ini(track), encoding="utf-8")
