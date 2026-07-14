@@ -1,217 +1,255 @@
-# rally-stage-builder
+# rally-stage-builder (`rsb`)
 
-**Génère des spéciales de rallye réelles, prêtes pour Assetto Corsa, à partir
-de géodonnées ouvertes.**
+**Transforme une route réelle en spéciale de rallye pour Assetto Corsa, à partir
+de géodonnées ouvertes — sans modéliser le tracé à la main.**
 
-À partir d'un point de départ + arrivée (+ points de passage optionnels),
-l'outil route le tracé le long du **vrai réseau routier** (OpenStreetMap),
-le drape sur un **MNT haute résolution** (swissALTI3D 0,5 m), échantillonne le
-**dévers**, segmente les **surfaces** (tarmac/terre), génère des **bordures**,
-et produit une **stage bundle** (représentation intermédiaire, IR) agnostique de
-l'éditeur, plus une **preview 3D validable hors Assetto Corsa**.
+Tu donnes un **tracé** (un GPX de roadbook, ou un départ + une arrivée) ; l'outil
+route la spéciale sur le **vrai réseau routier** (OpenStreetMap), la drape sur un
+**modèle d'altitude haute résolution** (swissALTI3D, 0,5 m), calcule le **dévers**,
+segmente les **surfaces** (tarmac / terre), pose des **bordures** et des
+**barrières** d'après le relief, puis écrit un **dossier piste prêt pour AC** —
+il ne te reste que le passage dans **ksEditor** pour sortir le `.kn5`.
 
-> ⚠️ **Le tracé n'est jamais modélisé à la main.** Il est toujours routé sur le
-> réseau OSM réel puis drapé sur le MNT.
+> 🇨🇭 **Aujourd'hui, l'altitude ne couvre que la Suisse** (source swissALTI3D).
+> Le reste de l'architecture est prêt pour d'autres pays, mais il faut y ajouter
+> une source d'altitude (voir [Limites](#limites)).
 
 ---
 
-## Pourquoi
+## Ce que tu obtiens (et ce qu'il reste à faire)
 
-Recréer une spéciale de rallye fidèle est fastidieux : il faut la bonne route,
-la bonne altitude, le bon dévers, les bonnes surfaces. Cet outil automatise tout
-le travail géométrique à partir de **données ouvertes** et ne laisse que le
-**dernier maillon manuel** (Blender → KN5 → AI line → pacenotes), documenté dans
-[`STAGE_GUIDE.md`](STAGE_GUIDE.md).
-
-**Suisse-first, pas Suisse-locked** : l'altimétrie passe par une abstraction
-`DEMProvider`. swissALTI3D est la première source ; IGN (France), PNOA (Espagne)
-et Copernicus (Europe) pourront être ajoutés **sans toucher au reste**.
-
-## Le workflow : waypoints → bundle → Blender → KN5
+À chaque build, `rsb` produit un dossier au **format piste Assetto Corsa**, prêt
+à copier dans `content/tracks/` :
 
 ```
-  stage.toml            rsb (ce dépôt)                 maillon manuel
- ┌──────────┐   T2..T9  ┌───────────────────┐  T10   ┌────────────────────┐
- │ waypoints │────────▶ │ stage bundle (IR)  │──────▶ │ Blender + io_import │
- │ + surfaces│          │  + preview 3D      │        │ _accsv → KN5        │
- └──────────┘          └───────────────────┘        │ → AI line → Copilot │
-                             ▲ validation             └────────────────────┘
-                             │  matplotlib 3D
-                        (AVANT d'investir dans le KN5)
+outputs/<rallye>/<ss>/ac/<track_id>/
+├── <track_id>.fbx     1ROAD (route) + 1KERB (bordures) + 1WALL (barrières) + 1GRASS
+│                      (terrain). Axe Y-up, mètres, normales correctes.
+├── models.ini         référence le .kn5
+├── data/
+│   ├── surfaces.ini   ROAD / GRASS / KERB
+│   ├── map.ini + map.png   minimap
+│   └── ai/            (fast_lane.ai à enregistrer en jeu)
+├── ui/
+│   ├── ui_track.json  nom, longueur, tags
+│   ├── preview.png    355×200
+│   └── outline.png    355×200
+└── README_IMPORT.txt  mode d'emploi ksEditor (sans Blender)
 ```
 
-1. **Vous** définissez départ / vias / arrivée + segments de surface dans un
-   `stages/<nom>/stage.toml` (référence : votre roadbook — usage **humain**).
-2. **rsb** route, drape, calcule le dévers, segmente, génère les bordures, et
-   écrit la **stage bundle** + une **preview 3D**.
-3. **Vous** validez la preview 3D (tracé, profil altimétrique, dévers).
-4. **Vous** importez le bundle dans Blender, exportez en KN5, générez l'AI line,
-   ajoutez les pacenotes Copilot (CSP). Voir [`STAGE_GUIDE.md`](STAGE_GUIDE.md).
+| ✅ `rsb` s'en occupe | 🛠️ À toi de finir (dans les outils AC) |
+|---|---|
+| Tracé routé sur OSM, drapé sur le MNT | Ouvrir le FBX dans **ksEditor**, assigner les matériaux/shaders |
+| Dévers, largeur, surfaces | Exporter le **`.kn5`** |
+| Bordures + barrières d'après le relief | Enregistrer l'**AI line** en jeu (`fast_lane.ai`) |
+| Objets AC (`AC_AB_START/FINISH/TIME/PIT`) | **Pacenotes** via CSP Copilot |
+| Minimap, previews UI, `ui_track.json` | |
 
-## Deux sources de tracé : GPX (recommandé) ou waypoints OSM
+Le dernier maillon (ksEditor → KN5 → AI line → pacenotes) est **entièrement
+documenté** dans [`STAGE_GUIDE.md`](STAGE_GUIDE.md). Aucun Blender requis.
 
-* **GPX** (recommandé pour une spéciale connue) : un fichier GPX exporté depuis
-  votre roadbook / rally-maps donne le **tracé réel dense**. Il est utilisé
-  **directement** comme centerline (projeté + rééchantillonné), puis drapé sur
-  swissALTI3D. C'est le plus fidèle (à quelques mètres près de la longueur réelle).
-  Dans le `stage.toml` : `gpx = "stage.gpx"` (chemin relatif).
-  ⚠️ Le GPX est un **contenu tiers** : gardé **local** (gitignoré `*.gpx`),
-  **non redistribué**.
-* **Waypoints OSM** : sans GPX, listez `[[waypoints]]` (départ / vias / arrivée) et
-  l'outil **route** sur le vrai réseau OSM. Pratique pour esquisser une spéciale.
+---
 
-## Quickstart
+## Prérequis
 
-Prérequis : Python 3.11+, [`uv`](https://docs.astral.sh/uv/).
+- **Python 3.11+** et [**uv**](https://docs.astral.sh/uv/) (gestionnaire d'env
+  recommandé ; un `pip` classique marche aussi, voir plus bas).
+- Une **connexion internet** (le build télécharge le réseau OSM et les tuiles MNT).
+- Pour le dernier maillon : **ksEditor** (SDK Kunos, gratuit) et, pour les
+  pacenotes, **Custom Shaders Patch** ≥ 0.2.4. Voir [`STAGE_GUIDE.md`](STAGE_GUIDE.md).
+
+## Installation
 
 ```bash
-# Installation
+git clone <ce-dépôt> && cd rally-stage-builder
+
+# avec uv (recommandé)
 uv venv --python 3.11
 uv pip install -e ".[dev]"
 
-# Vérifications
-ruff check . && mypy src/rsb && pytest
-
-# Construire UNE spéciale (Evionnaz–Vernayaz, Rallye du Chablais)
-# NB : télécharge des tuiles MNT + le réseau OSM (accès réseau requis).
-uv run rsb build stages/chablais-2026/ss5-9-evionnaz-vernayaz/stage.toml
-
-# Construire TOUT un rallye (toutes les spéciales) + carte d'ensemble
-uv run rsb build-rally stages/chablais-2026
-
-# Lister les spéciales, ajouter une spéciale (template à affiner)
-uv run rsb list stages/chablais-2026
-uv run rsb new-stage stages/chablais-2026 ss3-mon-tracé
-
-# Ré-ouvrir une preview 3D depuis un bundle existant (sans réseau)
-uv run rsb preview outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
-
-# Vue DÉTAILLÉE d'une spéciale (plan large + virages + profil/pente/dévers)
-uv run rsb detail outputs/chablais-2026/ss5-9-evionnaz-vernayaz/
+# …ou avec pip classique
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-Les sorties (bundles, mesh, previews, carte du rallye, **dossiers piste AC**) vont
-dans `outputs/` et les tuiles téléchargées dans `data/` — **les deux sont ignorés
-par git** (ce sont des sorties + du contenu dérivé de vos données ; ne pas
-redistribuer).
+Active l'environnement pour disposer de la commande `rsb` :
 
-### Dossier piste prêt pour Assetto Corsa
-
-Chaque build produit un **dossier piste au format AC**, prêt à copier :
-
-```
-outputs/<rallye>/<ss>/ac/<track_id>/          ← copiez CE dossier dans
-  ├── <track_id>.fbx        Import ksEditor → export <track_id>.kn5 ICI
-  ├── models.ini            content/tracks/
-  ├── README_IMPORT.txt     (mode d'emploi ksEditor, sans Blender)
-  ├── data/
-  │   ├── surfaces.ini      ROAD / GRASS / KERB
-  │   ├── map.ini + map.png minimap
-  │   └── ai/               fast_lane.ai (à générer en jeu)
-  └── ui/
-      ├── ui_track.json     nom, longueur, tags
-      ├── preview.png       355×200
-      └── outline.png       355×200
+```bash
+source .venv/bin/activate       # …ou préfixe chaque commande par `uv run` (ex. `uv run rsb doctor`)
 ```
 
-**Il ne manque que le `.kn5`** (modèle 3D compilé) : ouvrez `<track_id>.fbx` dans
-**ksEditor** (outil Kunos, **pas de Blender**), assignez les matériaux, exportez
-le `.kn5` dans le dossier, puis copiez le tout dans
-`Assetto Corsa/content/tracks/`. Détails : [`STAGE_GUIDE.md`](STAGE_GUIDE.md) §0bis.
-L'**AI line** et les **pacenotes** se génèrent en jeu (§5–6).
+Vérifie que tout est prêt (Python, dépendances, accès OSM/swisstopo) :
 
-### Utiliser avec un autre rallye
-
-1. Créez un dossier `stages/<mon-rallye>/` avec un `rally.toml` (nom, provider MNT,
-   valeurs par défaut, liste des spéciales — voir `stages/chablais-2026/rally.toml`).
-2. Ajoutez vos **GPX** (roadbook / export perso) dans ce dossier (ils restent
-   **locaux**, gitignorés). Un GPX multi-spéciales : une track par SS.
-3. Un sous-dossier + `stage.toml` par spéciale, pointant vers le GPX + sa track :
-   ```toml
-   name = "mon-rallye-ss1"
-   title = "Mon rallye — SS1"
-   gpx = "../mon-rallye.gpx"
-   gpx_track = "SS 1 - Nom"          # ou waypoints si pas de GPX
-   ```
-   Ou laissez `rsb new-stage stages/<mon-rallye> ss1-nom` créer le squelette.
-4. `uv run rsb build-rally stages/<mon-rallye>` → un dossier piste AC par SS.
-
-> **Hors Suisse** : swissALTI3D ne couvre que la Suisse. Pour un autre pays, il
-> faut ajouter un `DEMProvider` (IGN, PNOA, Copernicus…) — l'architecture le
-> permet sans toucher au reste (voir `providers/dem.py`).
-
-### Un rallye entier
-
-Un **rallye** = un dossier `stages/<rallye>/` avec un `rally.toml` (métadonnées +
-**valeurs par défaut** héritées par chaque spéciale) et un sous-dossier
-`stage.toml` par spéciale :
-
-```
-stages/chablais-2026/
-├── rally.toml                       # défauts (CRS, provider, largeur…) + liste des SS
-├── ss5-9-evionnaz-vernayaz/stage.toml
-└── ss-demo-plaine-evionnaz/stage.toml   # minimal : hérite des défauts du rallye
+```bash
+rsb doctor
 ```
 
-`rsb build-rally` construit **toutes** les spéciales en **partageant le cache**
-MNT/OSM, **saute** celles déjà construites (sauf `--force`), est **résilient**
-(l'échec d'une spéciale n'interrompt pas les autres), et produit un
-`rally.json` + une carte d'ensemble `rally_overview.png`.
+> `rsb doctor` te dit exactement ce qui manque avant de lancer un build. Ajoute
+> `--no-network` pour ne tester que l'environnement local.
 
-## Architecture
+---
 
-```
-rally-stage-builder/
-├── stages/
-│   └── chablais-2026/            # 1 dossier = 1 RALLYE
-│       ├── rally.toml            # défauts hérités + liste des spéciales (SS)
-│       └── ss5-9-evionnaz-vernayaz/stage.toml   # 1 sous-dossier = 1 spéciale
-├── src/rsb/
-│   ├── config.py                 # modèle stage.toml (pydantic)
-│   ├── rally.py                  # modèle rally.toml + build_rally (multi-spéciales)
-│   ├── pipeline.py               # build_stage : orchestration T2→T8
-│   ├── cli.py                    # rsb build / build-rally / list / new-stage / preview
-│   ├── providers/dem.py          # DEMProvider (ABC) + SwissAlti3DProvider
-│   ├── fetch/stac_swisstopo.py   # STAC → tuiles GeoTIFF sur bbox
-│   ├── geo/centerline.py         # osmnx : waypoints → tracé routé, rééchantillonné
-│   ├── geo/drape.py              # Z du MNT le long du tracé
-│   ├── geo/camber.py             # coupes perpendiculaires → largeur + dévers
-│   ├── geo/surface.py            # segmentation tarmac/terre (+ hook ortho)
-│   ├── geo/barriers.py           # offset bord de route + hook obstacles
-│   ├── ir/bundle.py              # écrit la stage bundle (geojson + mesh terrain)
-│   └── export/                   # adaptateurs (Blender, RTB) — stubs
-├── validate/preview3d.py         # visu matplotlib 3D (profil + dévers) + carte rallye
-└── tests/
+## Prise en main en 3 minutes (exemple fourni)
+
+Le dépôt contient une spéciale de démonstration **prête à l'emploi**
+(Evionnaz–Vernayaz), construite uniquement depuis des données redistribuables.
+
+```bash
+# 1) construis-la (télécharge OSM + MNT pour cette zone, ~1 min)
+rsb build examples/evionnaz-test-stage/stage.toml
+
+# 2) regarde la preview 3D AVANT d'aller plus loin
+#    → outputs/evionnaz-test-stage/preview.png  (tracé + profil d'altitude + dévers)
+
+# 3) le dossier piste AC est là :
+#    → outputs/evionnaz-test-stage/ac/evionnaz-test-stage/
+#      ouvre le .fbx dans ksEditor (voir STAGE_GUIDE.md §0bis), exporte le .kn5,
+#      copie le dossier dans content/tracks/.
 ```
 
-L'**IR (stage bundle)** ne dépend d'aucun éditeur : c'est le point d'inversion de
-dépendance. Les exporteurs sont des adaptateurs. Voir [`DECISIONS.md`](DECISIONS.md).
+Pas envie d'attendre le build ? Une version **déjà construite** de cet exemple
+est versionnée dans [`examples/evionnaz-test-stage/`](examples/evionnaz-test-stage/) :
+tu peux inspecter le FBX et les fichiers AC immédiatement.
 
-## ⚠️ Disclaimer
+> ⚠️ **Valide toujours `preview.png` d'abord.** Si le tracé, le profil d'altitude
+> ou le dévers sont faux, corrige le `stage.toml` (waypoints / surfaces) et
+> relance — inutile d'investir dans le KN5 tant que la preview n'est pas bonne.
 
-- Ces recréations sont destinées à un **usage de simulation personnel**.
-- **Respectez les licences des données** (voir [`ATTRIBUTION.md`](ATTRIBUTION.md)) :
-  OpenStreetMap (© OpenStreetMap contributors, ODbL — **attribution
-  obligatoire**), swisstopo (Open Government Data — mention de la source
-  appréciée).
-- `rally-maps.com` et les roadbooks sont une **référence humaine** pour choisir
-  les routes. **Aucun scraping**, **aucune redistribution** de leur contenu.
-- Les auteurs déclinent toute responsabilité quant à l'exactitude des tracés ou
-  à l'usage qui en est fait.
+---
 
-## Attribution (résumé)
+## Construire ta propre spéciale
 
-- **© OpenStreetMap contributors** — réseau routier, licence ODbL.
-- **Source : Office fédéral de topographie swisstopo** — MNT swissALTI3D (OGD).
+Il y a **deux façons** de fournir le tracé :
 
-Détails complets : [`ATTRIBUTION.md`](ATTRIBUTION.md).
+### A. Depuis un GPX (recommandé — le plus fidèle)
 
-## Licence
+Un GPX de roadbook donne le **tracé réel dense**. Il est utilisé directement comme
+centerline (projeté + rééchantillonné), puis drapé sur le MNT.
 
-Code sous licence **MIT** (voir [`LICENSE`](LICENSE)). Les **données** restent
-soumises à leurs licences respectives (OSM ODbL, swisstopo OGD).
+```toml
+# stage.toml
+name = "mon-rallye-ss1"
+title = "Mon rallye — SS1"
+direction = "Village A → Village B"
+gpx = "mon-rallye.gpx"        # chemin relatif au stage.toml
+gpx_track = "SS 1 - Nom"      # si le GPX contient plusieurs spéciales (nom ou index)
+default_surface = "tarmac"
+```
 
-## Contribuer
+> ⚠️ Un GPX est un **contenu tiers** (roadbook / rally-maps). Il reste **local** :
+> le dépôt ignore les `*.gpx`, ne les redistribue pas. `rally-maps.com` sert de
+> **référence humaine** pour choisir la route — **aucun scraping**.
 
-Voir [`CONTRIBUTING.md`](CONTRIBUTING.md). En résumé : 1 tâche = 1 commit atomique,
-TDD sur le cœur géométrique, `ruff` + `mypy --strict` + `pytest` verts.
+### B. Depuis un départ + une arrivée (routage OSM)
+
+Sans GPX, liste des waypoints ; l'outil route sur le vrai réseau OSM. Pratique
+pour esquisser une spéciale.
+
+```toml
+name = "mon-rallye-ss1"
+title = "Mon rallye — SS1"
+
+[[waypoints]]
+role = "start"
+name = "Départ"
+lat = 46.1734
+lon = 7.0216
+
+# [[waypoints]] role = "via" … (points de passage intermédiaires, optionnels)
+
+[[waypoints]]
+role = "end"
+name = "Arrivée"
+lat = 46.1438
+lon = 7.0377
+```
+
+Puis :
+
+```bash
+rsb build chemin/vers/stage.toml
+```
+
+### Un rallye entier (plusieurs spéciales)
+
+Un **rallye** = un dossier avec un `rally.toml` (métadonnées + valeurs par défaut
+héritées) et un sous-dossier `stage.toml` par spéciale.
+
+```bash
+rsb new-stage stages/mon-rallye ss1-nom   # crée le squelette d'une spéciale
+rsb list       stages/mon-rallye          # liste les spéciales
+rsb build-rally stages/mon-rallye         # construit TOUT + une carte d'ensemble
+```
+
+`build-rally` partage le cache OSM/MNT, **saute** les spéciales déjà construites
+(sauf `--force`), est **résilient** (l'échec d'une SS n'interrompt pas les autres)
+et produit un `rally_overview.png`. Modèle complet :
+[`stages/chablais-2026/`](stages/chablais-2026/).
+
+---
+
+## Les commandes
+
+| Commande | Rôle |
+|---|---|
+| `rsb doctor` | Vérifie Python, dépendances et connectivité (à lancer en premier). |
+| `rsb build <stage.toml>` | Construit **une** spéciale → bundle + dossier AC + preview. |
+| `rsb build-rally <dir>` | Construit **toutes** les spéciales d'un rallye + carte. |
+| `rsb preview <bundle>` | Re-rend la preview 3D d'une bundle (sans réseau). |
+| `rsb detail <bundle>` | Vue détaillée (plan large + virages + profil/pente/dévers). |
+| `rsb list <dir>` | Liste les spéciales d'un rallye. |
+| `rsb new-stage <dir> <id>` | Crée le squelette d'une spéciale. |
+
+`rsb <commande> --help` détaille les options. En cas d'erreur, le message est
+présenté en clair ; ajoute `--traceback` pour la trace complète.
+
+Les sorties vont dans `outputs/` et les tuiles/graphes téléchargés dans `data/` :
+**les deux sont ignorés par git** (sorties + contenu dérivé, à ne pas redistribuer).
+
+---
+
+## Limites
+
+- **Altitude = Suisse uniquement.** swissALTI3D ne couvre que la Suisse. Pour un
+  autre pays, il faut brancher une source d'altitude (IGN France, PNOA Espagne,
+  Copernicus…) : l'architecture le permet via `DEMProvider`
+  ([`src/rsb/providers/dem.py`](src/rsb/providers/dem.py)) **sans toucher au
+  reste du pipeline**, mais ce provider reste à écrire.
+- **Dernier maillon manuel.** `rsb` s'arrête au FBX + dossier AC. Le KN5, l'AI
+  line et les pacenotes se font dans ksEditor / en jeu ([`STAGE_GUIDE.md`](STAGE_GUIDE.md)).
+- **Recréation à usage simulation personnel.** Respecte les licences des données.
+
+## Licences & attribution
+
+- **Code** : licence **MIT** (voir [`LICENSE`](LICENSE)).
+- **Données** (attribution **obligatoire**, voir [`ATTRIBUTION.md`](ATTRIBUTION.md)) :
+  - **© OpenStreetMap contributors** — réseau routier, licence ODbL.
+  - **Source : Office fédéral de topographie swisstopo** — MNT swissALTI3D (OGD).
+- **rally-maps / roadbooks** : référence **humaine** uniquement. **Aucun
+  scraping, aucune redistribution** de leur contenu (les GPX restent locaux).
+
+---
+
+## Sous le capot (pour les curieux)
+
+```
+src/rsb/
+├── config.py        stage.toml (pydantic)          providers/dem.py   DEMProvider + swissALTI3D
+├── rally.py         rally.toml + build multi-SS     fetch/…            STAC swisstopo → tuiles
+├── pipeline.py      orchestration build_stage       geo/centerline.py  OSM/GPX → tracé
+├── cli.py           commandes rsb                    geo/drape.py       Z du MNT (+ dé-spiking)
+├── ir/bundle.py     la « stage bundle » (IR)         geo/camber.py      coupes → largeur + dévers
+└── export/ac_track  FBX + dossier AC                 geo/{surface,barriers}.py
+validate/preview3d.py   previews 3D (matplotlib) + carte de rallye
+```
+
+La **stage bundle** (IR) ne dépend d'aucun éditeur : les exporteurs sont des
+adaptateurs. Choix d'architecture : [`DECISIONS.md`](DECISIONS.md). Contribuer :
+[`CONTRIBUTING.md`](CONTRIBUTING.md) (1 tâche = 1 commit atomique, `ruff` +
+`mypy --strict` + `pytest` verts).
+
+## Disclaimer
+
+Ces recréations sont destinées à un **usage de simulation personnel**. Les auteurs
+déclinent toute responsabilité quant à l'exactitude des tracés ou à l'usage qui en
+est fait.
