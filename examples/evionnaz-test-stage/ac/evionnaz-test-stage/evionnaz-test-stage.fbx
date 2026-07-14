@@ -22,10 +22,10 @@ GlobalSettings:  {
 
 Definitions:  {
 	Version: 100
-	Count: 16
+	Count: 17
 	ObjectType: "GlobalSettings" { Count: 1 }
 	ObjectType: "Geometry" { Count: 4 }
-	ObjectType: "Model" { Count: 11 }
+	ObjectType: "Model" { Count: 12 }
 }
 
 Objects:  {
@@ -309,10 +309,18 @@ Objects:  {
 		Shading: Y
 		Culling: "CullingOff"
 	}
-	Model: 2000010, "Model::AC_PIT_0", "Null" {
+	Model: 2000010, "Model::AC_START_0", "Null" {
 		Version: 232
 		Properties70:  {
-			P: "Lcl Translation", "Lcl Translation", "", "A+",0.00000,3.58186,-3271.12181
+			P: "Lcl Translation", "Lcl Translation", "", "A+",0.00000,3.78186,-3271.12181
+		}
+		Shading: Y
+		Culling: "CullingOff"
+	}
+	Model: 2000011, "Model::AC_PIT_0", "Null" {
+		Version: 232
+		Properties70:  {
+			P: "Lcl Translation", "Lcl Translation", "", "A+",0.00000,3.78186,-3271.12181
 		}
 		Shading: Y
 		Culling: "CullingOff"
@@ -335,4 +343,5 @@ Connections:  {
 	C: "OO", 2000008, 0
 	C: "OO", 2000009, 0
 	C: "OO", 2000010, 0
+	C: "OO", 2000011, 0
 }
