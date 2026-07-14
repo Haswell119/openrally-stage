@@ -1,18 +1,49 @@
 """Interface en ligne de commande ``rsb``.
 
-* ``rsb build <stage.toml>``  — pipeline complet → stage bundle + preview 3D.
-* ``rsb preview <bundle_dir>`` — re-rend la preview 3D depuis une bundle existante.
+Commandes principales :
+
+* ``rsb doctor``             — vérifie l'environnement (Python, dépendances, réseau).
+* ``rsb build <stage.toml>`` — pipeline complet → stage bundle + dossier AC + preview 3D.
+* ``rsb build-rally <dir>``  — construit TOUTES les spéciales d'un rallye.
+* ``rsb preview <bundle>``   — re-rend la preview 3D depuis une bundle existante.
+* ``rsb detail <bundle>``    — vue détaillée (plan large + virages + profil).
+* ``rsb list <dir>``         — liste les spéciales d'un rallye.
+* ``rsb new-stage <dir> id`` — crée le squelette d'une spéciale.
+
+Les erreurs sont présentées en clair (pas de traceback) ; ajoutez ``--traceback``
+(ou ``RSB_TRACEBACK=1``) pour la trace complète lors d'un débogage.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tomllib
 from pathlib import Path
 
+from rsb import __version__
 from rsb.config import SurfaceKind, load_stage
 from rsb.ir.bundle import load_bundle
 from rsb.pipeline import build_stage
+
+# Points d'accès sondés par ``rsb doctor`` (les mêmes services que ``build`` utilise).
+_STAC_URL = "https://data.geo.admin.ch/api/stac/v1/"
+_OVERPASS_URL = "https://overpass-api.de/api/status"
+
+# Dépendances tierces requises par le pipeline (nom d'import → paquet pip).
+_REQUIRED_MODULES = [
+    "numpy",
+    "scipy",
+    "shapely",
+    "pyproj",
+    "geopandas",
+    "rasterio",
+    "osmnx",
+    "pystac_client",
+    "matplotlib",
+    "pydantic",
+]
 
 
 def _reminders(cfg_path: Path) -> str:
@@ -24,6 +55,61 @@ def _reminders(cfg_path: Path) -> str:
     )
 
 
+# --------------------------------------------------------------------- doctor
+def _probe(url: str, timeout: float = 6.0) -> bool:
+    """Vrai si ``url`` répond (serveur joignable), faux sinon. Best-effort."""
+    try:
+        import requests
+
+        resp = requests.get(url, timeout=timeout)
+        return resp.status_code < 500
+    except Exception:  # noqa: BLE001 — tout échec = injoignable
+        return False
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    import importlib
+    import platform
+
+    ok = True
+    print("rsb doctor — vérification de l'environnement\n")
+
+    py_ok = sys.version_info >= (3, 11)
+    print(f"  [{'✓' if py_ok else '✗'}] Python {platform.python_version()} (requis ≥ 3.11)")
+    ok = ok and py_ok
+
+    for mod in _REQUIRED_MODULES:
+        try:
+            m = importlib.import_module(mod)
+            print(f"  [✓] {mod} {getattr(m, '__version__', '?')}")
+        except Exception:  # noqa: BLE001
+            ok = False
+            print(f"  [✗] {mod} MANQUANT")
+
+    if args.no_network:
+        print("\n  (contrôle réseau ignoré : --no-network)")
+    else:
+        print("\n  Connectivité (nécessaire pour `build` — télécharge OSM + tuiles MNT) :")
+        for label, url in (
+            ("swisstopo / swissALTI3D (MNT)", _STAC_URL),
+            ("OpenStreetMap / Overpass", _OVERPASS_URL),
+        ):
+            reachable = _probe(url)
+            ok = ok and reachable
+            state = "joignable" if reachable else "INJOIGNABLE"
+            print(f"    [{'✓' if reachable else '✗'}] {label} : {state}")
+
+    print()
+    if ok:
+        print("✓ Environnement prêt. Essayez :")
+        print("    rsb build examples/evionnaz-test-stage/stage.toml")
+    else:
+        print("✗ Corrigez les points ci-dessus avant de construire une spéciale.")
+        print('  Dépendances manquantes → `uv pip install -e ".[dev]"`.')
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------------- build
 def _cmd_build(args: argparse.Namespace) -> int:
     cfg_path = Path(args.stage)
     cfg = load_stage(cfg_path)
@@ -55,6 +141,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
     if cl.surface is not None:
         n_gravel = sum(1 for s in cl.surface if s is SurfaceKind.GRAVEL)
         print(f"  surfaces : {n_gravel} stations « terre » (overrides config : {runs or 'aucun'})")
+    print(f"  dossier piste AC : {out_dir / 'ac' / cfg.name}/ (→ ksEditor, voir STAGE_GUIDE.md)")
 
     if not args.no_preview:
         from validate.preview3d import render_preview
@@ -184,11 +271,86 @@ def _cmd_new_stage(args: argparse.Namespace) -> int:
     return 0
 
 
+# ------------------------------------------------------------- gestion erreurs
+def _looks_like_network(exc: BaseException) -> bool:
+    """Vrai si ``exc`` (ou une cause) ressemble à un problème réseau."""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        name = type(cur).__name__.lower()
+        if isinstance(cur, ConnectionError | TimeoutError) or any(
+            k in name for k in ("connection", "timeout", "dns", "resolve", "ssl", "urlerror")
+        ):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
+def _print_error(exc: BaseException) -> None:
+    """Formate une exception en message clair et actionnable (sur stderr)."""
+    try:
+        from pydantic import ValidationError
+    except Exception:  # noqa: BLE001 — pydantic est une dépendance, mais restons robustes
+        ValidationError = None  # type: ignore[assignment,misc]
+
+    if isinstance(exc, FileNotFoundError):
+        print(f"✗ Fichier introuvable : {exc.filename or exc}", file=sys.stderr)
+    elif isinstance(exc, tomllib.TOMLDecodeError):
+        print(f"✗ Fichier TOML invalide : {exc}", file=sys.stderr)
+    elif ValidationError is not None and isinstance(exc, ValidationError):
+        print("✗ Configuration invalide :", file=sys.stderr)
+        for err in exc.errors()[:5]:
+            loc = ".".join(str(x) for x in err["loc"])
+            print(f"   • {loc or '(racine)'} : {err['msg']}", file=sys.stderr)
+    elif _looks_like_network(exc):
+        print(
+            f"✗ Problème de réseau en joignant OSM/swisstopo : {exc}\n"
+            "  Le build télécharge le réseau OSM et les tuiles MNT — vérifiez votre connexion.\n"
+            "  Diagnostic : `rsb doctor`.",
+            file=sys.stderr,
+        )
+    else:
+        print(f"✗ {exc}", file=sys.stderr)
+
+
+# ------------------------------------------------------------------ argparse
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="rsb", description="rally-stage-builder")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--traceback",
+        action="store_true",
+        help="afficher la trace complète en cas d'erreur (débogage)",
+    )
+
+    p = argparse.ArgumentParser(
+        prog="rsb",
+        description="rally-stage-builder — spéciales de rallye réelles pour Assetto Corsa.",
+        epilog=(
+            "Exemples :\n"
+            "  rsb doctor                                            # vérifier l'installation\n"
+            "  rsb build examples/evionnaz-test-stage/stage.toml     # construire l'exemple\n"
+            "  rsb build-rally stages/chablais-2026                  # tout un rallye\n"
+            "  rsb preview outputs/<rallye>/<ss>/                    # revoir la preview 3D"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("--version", action="version", version=f"rsb {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
-    b = sub.add_parser("build", help="pipeline complet → stage bundle + preview")
+    doc = sub.add_parser(
+        "doctor",
+        parents=[common],
+        help="vérifier l'environnement (Python, dépendances, réseau)",
+    )
+    doc.add_argument(
+        "--no-network", action="store_true", help="ne pas tester la connectivité OSM/swisstopo"
+    )
+    doc.set_defaults(func=_cmd_doctor)
+
+    b = sub.add_parser(
+        "build", parents=[common], help="pipeline complet → stage bundle + dossier AC + preview"
+    )
     b.add_argument("stage", help="chemin d'un stage.toml")
     b.add_argument("--out", help="dossier de sortie (défaut : outputs/<name>)")
     b.add_argument("--cache", default="data", help="cache tuiles/OSM (défaut : data)")
@@ -200,17 +362,23 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--no-preview", action="store_true", help="ne pas rendre la preview 3D")
     b.set_defaults(func=_cmd_build)
 
-    v = sub.add_parser("preview", help="re-rend la preview 3D d'une bundle existante")
+    v = sub.add_parser(
+        "preview", parents=[common], help="re-rend la preview 3D d'une bundle existante"
+    )
     v.add_argument("bundle", help="dossier d'une stage bundle")
     v.add_argument("--out", help="chemin du PNG (défaut : <bundle>/preview.png)")
     v.set_defaults(func=_cmd_preview)
 
-    dt = sub.add_parser("detail", help="vue détaillée d'une spéciale (plan large + analyses)")
+    dt = sub.add_parser(
+        "detail", parents=[common], help="vue détaillée d'une spéciale (plan large + analyses)"
+    )
     dt.add_argument("bundle", help="dossier d'une stage bundle")
     dt.add_argument("--out", help="chemin du PNG (défaut : <bundle>/detail.png)")
     dt.set_defaults(func=_cmd_detail)
 
-    r = sub.add_parser("build-rally", help="construit TOUTES les spéciales d'un rallye")
+    r = sub.add_parser(
+        "build-rally", parents=[common], help="construit TOUTES les spéciales d'un rallye"
+    )
     r.add_argument("rally", help="dossier du rallye (ou chemin d'un rally.toml)")
     r.add_argument("--cache", default="data", help="cache tuiles/OSM (défaut : data)")
     r.add_argument("--only", nargs="+", help="ne construire que ces id de spéciales")
@@ -219,11 +387,13 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--no-preview", action="store_true", help="ne pas rendre les previews")
     r.set_defaults(func=_cmd_build_rally)
 
-    ls = sub.add_parser("list", help="liste les spéciales d'un rallye")
+    ls = sub.add_parser("list", parents=[common], help="liste les spéciales d'un rallye")
     ls.add_argument("rally", help="dossier du rallye (ou chemin d'un rally.toml)")
     ls.set_defaults(func=_cmd_list)
 
-    ns = sub.add_parser("new-stage", help="crée une spéciale (template) dans un rallye")
+    ns = sub.add_parser(
+        "new-stage", parents=[common], help="crée une spéciale (template) dans un rallye"
+    )
     ns.add_argument("rally", help="dossier du rallye (ou chemin d'un rally.toml)")
     ns.add_argument("id", help="identifiant de la spéciale (ex. ss3-nom)")
     ns.set_defaults(func=_cmd_new_stage)
@@ -233,9 +403,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
-    func = args.func
-    result: int = func(args)
-    return result
+    show_tb = getattr(args, "traceback", False) or os.environ.get("RSB_TRACEBACK") == "1"
+    try:
+        result: int = args.func(args)
+        return result
+    except KeyboardInterrupt:
+        print("\n✗ Interrompu.", file=sys.stderr)
+        return 130
+    except Exception as exc:  # noqa: BLE001 — surface CLI : message clair, pas de traceback
+        if show_tb:
+            raise
+        _print_error(exc)
+        return 1
 
 
 if __name__ == "__main__":
